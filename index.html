@@ -980,10 +980,10 @@
       const SUPABASE_KEY = 'sb_publishable_6zZgExehxa0CNiIgSIdqUg_x4OPCmMA';
       const GEMINI_KEY = 'AIzaSyC0I5RH7oJQsyX6dG5Vk-aTLJYn54X6Iok';
 
-      let supabase;
+      let sb;
       try {
          if (window.supabase) {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
          } else {
             console.error("Supabase CDN not ready. Retrying in background...");
          }
@@ -1012,14 +1012,14 @@
          localStorage.setItem('rage_habits', JSON.stringify(habits));
 
          // Then sync to Supabase (persistent)
-         if (!supabase && window.supabase) {
-            try { supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { }
+         if (!sb && window.supabase) {
+            try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { }
          }
 
-         if (supabase && user?.id) {
+         if (sb && user?.id) {
             try {
                // Sync User Public Profile
-               await supabase.from('users_public').upsert({
+               await sb.from('users_public').upsert({
                   id: user.id,
                   name: user.user_metadata?.name || user.name,
                   username: user.user_metadata?.username || user.username,
@@ -1032,30 +1032,30 @@
                // Sync Tasks
                if (tasks.length > 0) {
                   const tasksToSync = tasks.map(t => ({ ...t, user_id: user.id }));
-                  await supabase.from('tasks').upsert(tasksToSync);
+                  await sb.from('tasks').upsert(tasksToSync);
                }
 
                // Sync Goals
                if (goals.length > 0) {
                   const goalsToSync = goals.map(g => ({ ...g, user_id: user.id }));
-                  await supabase.from('goals').upsert(goalsToSync);
+                  await sb.from('goals').upsert(goalsToSync);
                }
 
                // Sync Daily Logs
                if (dailyLog.date) {
-                  await supabase.from('daily_logs').upsert({ ...dailyLog, user_id: user.id });
+                  await sb.from('daily_logs').upsert({ ...dailyLog, user_id: user.id });
                }
 
                // Sync Timetable
                if (timetable.length > 0) {
                   const ttToSync = timetable.map(b => ({ ...b, user_id: user.id }));
-                  await supabase.from('timetable_blocks').upsert(ttToSync);
+                  await sb.from('timetable_blocks').upsert(ttToSync);
                }
 
                // Sync Chat History (RAGE Core)
                if (chatHistory.length > 0) {
                   const chatToSync = chatHistory.map(m => ({ ...m, user_id: user.id }));
-                  await supabase.from('chat_history').upsert(chatToSync);
+                  await sb.from('chat_history').upsert(chatToSync);
                }
             } catch (e) {
                console.error('Supabase Sync Error:', e);
@@ -1246,14 +1246,14 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          AUTH
          ═══════════════════════════════════════ */
       async function doLogin() {
-         const { data, error } = await supabase.auth.signInWithPassword({
+         const { data, error } = await sb.auth.signInWithPassword({
             email: document.getElementById('login-email').value,
             password: document.getElementById('login-pw').value
          });
          if (error) return toast(error.message, 'var(--orange)');
          user = data.user;
          // Fetch public profile to get xp, level etc
-         const { data: profile } = await supabase.from('users_public').select('*').eq('id', user.id).single();
+         const { data: profile } = await sb.from('users_public').select('*').eq('id', user.id).single();
          if (profile) {
             user = { ...user, ...profile };
          }
@@ -1270,7 +1270,7 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          if (!name || !uname || !email || !pw) return toast('Fill all fields', 'var(--orange)');
          if (pw !== cpw) return toast('Passwords do not match', 'var(--orange)');
 
-         const { data, error } = await supabase.auth.signUp({
+         const { data, error } = await sb.auth.signUp({
             email: email,
             password: pw,
             options: {
@@ -1294,7 +1294,7 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          toast(`Welcome to RAGE OS, ${name}!`);
       }
       async function doGoogleLogin() {
-         const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+         const { error } = await sb.auth.signInWithOAuth({ provider: 'google' });
          if (error) toast(error.message, 'var(--orange)');
       }
 
@@ -1979,7 +1979,7 @@ Colors: cyan, green, purple, orange, grey`;
          // Fix 4: Fetch real posts
          let posts = [];
          try {
-            const { data } = await supabase.from('posts').select('*').order('created_at', { ascending: false }).limit(20);
+            const { data } = await sb.from('posts').select('*').order('created_at', { ascending: false }).limit(20);
             posts = data || [];
          } catch (e) { console.error(e); }
 
@@ -2061,7 +2061,7 @@ Colors: cyan, green, purple, orange, grey`;
          // Fix 3: Fetch real contacts from Supabase
          let contacts = [];
          try {
-            const { data } = await supabase.from('users_public').select('*').neq('id', user?.id).limit(10);
+            const { data } = await sb.from('users_public').select('*').neq('id', user?.id).limit(10);
             contacts = data || [];
          } catch (e) { console.error(e); }
 
@@ -2242,7 +2242,7 @@ Colors: cyan, green, purple, orange, grey`;
 
          let history = [];
          try {
-            const { data } = await supabase.from('messages')
+            const { data } = await sb.from('messages')
                .select('*')
                .or(`and(sender_id.eq.${user.id},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${user.id})`)
                .order('created_at', { ascending: true });
@@ -2283,7 +2283,7 @@ Colors: cyan, green, purple, orange, grey`;
          const chat = document.getElementById('dm-messages');
          if (chat) chat.scrollTop = chat.scrollHeight;
 
-         supabase.channel(`convo-${targetId}`)
+         sb.channel(`convo-${targetId}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
                if (payload.new.sender_id === targetId || payload.new.sender_id === user.id) {
                   appendDM(payload.new);
@@ -2298,7 +2298,7 @@ Colors: cyan, green, purple, orange, grey`;
          const content = inp.value.trim();
          if (!content || !currentDirectUser) return;
          try {
-            await supabase.from('messages').insert({ sender_id: user.id, receiver_id: currentDirectUser.id, content: content });
+            await sb.from('messages').insert({ sender_id: user.id, receiver_id: currentDirectUser.id, content: content });
             inp.value = '';
          } catch (e) { toast('Error sending message', 'var(--orange)'); }
       }
@@ -2349,7 +2349,7 @@ Colors: cyan, green, purple, orange, grey`;
          const type = document.querySelector('#post-modal div[data-type]')?.dataset.type || 'THOUGHT';
          const lv = getLevel();
          try {
-            await supabase.from('posts').insert({
+            await sb.from('posts').insert({
                user_id: user.id, user_name: user.username || user.name, user_level: lv.lvl,
                user_avatar: user.avatar || '👤', content: text, type: type, reactions: { fire: 0, zap: 0 }
             });
@@ -2363,7 +2363,7 @@ Colors: cyan, green, purple, orange, grey`;
 
       function initPresence() {
          if (presenceChannel) return;
-         presenceChannel = supabase.channel('online-users');
+         presenceChannel = sb.channel('online-users');
          presenceChannel.on('presence', { event: 'sync' }, () => {
             const state = presenceChannel.presenceState();
             updateOnlineUI(state);
@@ -2395,7 +2395,7 @@ Colors: cyan, green, purple, orange, grey`;
          modal.style.background = 'rgba(0,0,0,0.95)';
          modal.style.zIndex = '3000';
 
-         const { data: stories } = await supabase.from('stories').select('*').gt('created_at', new Date(Date.now() - 86400000).toISOString());
+         const { data: stories } = await sb.from('stories').select('*').gt('created_at', new Date(Date.now() - 86400000).toISOString());
          const myStory = stories?.find(s => s.user_id === user.id);
 
          modal.innerHTML = `
@@ -2439,7 +2439,7 @@ Colors: cyan, green, purple, orange, grey`;
          const content = document.getElementById('story-content').value.trim();
          if (!content) return;
          try {
-            await supabase.from('stories').insert({
+            await sb.from('stories').insert({
                user_id: user.id,
                user_name: user.username || user.name,
                content: content
@@ -2454,12 +2454,12 @@ Colors: cyan, green, purple, orange, grey`;
       async function toggleFollow(targetId) {
          if (!user?.id) return;
          try {
-            const { data: existing } = await supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', targetId).single();
+            const { data: existing } = await sb.from('follows').select('*').eq('follower_id', user.id).eq('following_id', targetId).single();
             if (existing) {
-               await supabase.from('follows').delete().eq('id', existing.id);
+               await sb.from('follows').delete().eq('id', existing.id);
                toast('Protocol: Unfollowed Cadet.');
             } else {
-               await supabase.from('follows').insert({ follower_id: user.id, following_id: targetId });
+               await sb.from('follows').insert({ follower_id: user.id, following_id: targetId });
                toast('Protocol: Following Cadet.', 'var(--green)');
             }
             renderNetwork();
@@ -2521,7 +2521,7 @@ Colors: cyan, green, purple, orange, grey`;
       async function shareDebriefToArena(text) {
          try {
             const lv = getLevel();
-            await supabase.from('posts').insert({
+            await sb.from('posts').insert({
                user_id: user.id,
                user_name: user.username || user.name,
                user_level: lv.lvl,
@@ -2669,7 +2669,7 @@ Colors: cyan, green, purple, orange, grey`;
          document.body.appendChild(modal);
 
          // Fetch contacts for the dropdown
-         supabase.from('users_public').select('*').neq('id', user.id).limit(20)
+         sb.from('users_public').select('*').neq('id', user.id).limit(20)
             .then(({ data }) => {
                const sel = document.getElementById('pact-target');
                if (sel && data) {
@@ -2684,7 +2684,7 @@ Colors: cyan, green, purple, orange, grey`;
          if (!targetId || !goal) return toast('Target and Goal required.', 'var(--orange)');
 
          try {
-            await supabase.from('pacts').insert({
+            await sb.from('pacts').insert({
                user1_id: user.id,
                user2_id: targetId,
                goal: goal,
