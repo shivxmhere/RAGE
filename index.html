@@ -1,13 +1,2686 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
 
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+   <title>RAGE OS — Rise. Act. Grow. Excel.</title>
+   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+   <meta name="description" content="RAGE OS — Personal Life Operating System">
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet">
+   <style>
+      :root {
+         --bg1: #060910;
+         --bg2: #0A0F1E;
+         --card: #0D1526;
+         --card2: #111827;
+         --cyan: #00F5FF;
+         --orange: #FF6B35;
+         --green: #39FF14;
+         --purple: #7C3AED;
+         --text: #E8F4F8;
+         --muted: #4A6580;
+         --border: rgba(0, 245, 255, 0.12);
+         --glow-c: rgba(0, 245, 255, 0.15);
+         --glow-o: rgba(255, 107, 53, 0.15);
+         --font-d: 'Orbitron', sans-serif;
+         --font-t: 'Rajdhani', sans-serif;
+         --font-b: 'DM Mono', monospace;
+         --r-sm: 8px;
+         --r-md: 16px;
+         --r-lg: 20px;
+         --r-nav: 24px;
+         --r-full: 50%;
+      }
+
+      * {
+         margin: 0;
+         padding: 0;
+         box-sizing: border-box;
+      }
+
+      html,
+      body {
+         height: 100%;
+         background: var(--bg1);
+         color: var(--text);
+         font-family: var(--font-b);
+         overflow: hidden;
+      }
+
+      .screen {
+         display: none;
+         position: absolute;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+         overflow-y: auto;
+         overflow-x: hidden;
+         padding-bottom: 90px;
+      }
+
+      .screen.active {
+         display: flex;
+         flex-direction: column;
+      }
+
+      .screen.no-pad {
+         padding-bottom: 0;
+      }
+
+      button {
+         cursor: pointer;
+         border: none;
+         outline: none;
+         font-family: var(--font-t);
+         transition: transform .15s, box-shadow .2s;
+      }
+
+      button:active {
+         transform: scale(0.96);
+      }
+
+      input,
+      select,
+      textarea {
+         background: var(--card);
+         border: 1px solid var(--border);
+         color: var(--text);
+         font-family: var(--font-b);
+         padding: 12px 16px;
+         border-radius: var(--r-sm);
+         width: 100%;
+         font-size: 14px;
+         outline: none;
+         transition: border .2s, box-shadow .2s;
+      }
+
+      input:focus,
+      textarea:focus {
+         border-color: var(--cyan);
+         box-shadow: 0 0 12px var(--glow-c);
+      }
+
+      ::-webkit-scrollbar {
+         width: 4px;
+      }
+
+      ::-webkit-scrollbar-track {
+         background: var(--bg2);
+      }
+
+      ::-webkit-scrollbar-thumb {
+         background: var(--muted);
+         border-radius: 4px;
+      }
+
+      .btn-cyan {
+         background: linear-gradient(135deg, var(--cyan), #00c4cc);
+         color: var(--bg1);
+         font-family: var(--font-d);
+         font-weight: 700;
+         padding: 14px 24px;
+         border-radius: var(--r-sm);
+         width: 100%;
+         font-size: 15px;
+         letter-spacing: 1px;
+         box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+      }
+
+      .btn-cyan:hover {
+         box-shadow: 0 0 30px rgba(0, 245, 255, 0.5);
+         transform: translateY(-2px);
+      }
+
+      .btn-orange {
+         background: linear-gradient(135deg, var(--orange), #e05520);
+         color: #fff;
+         font-family: var(--font-d);
+         font-weight: 700;
+         padding: 14px 24px;
+         border-radius: var(--r-sm);
+         width: 100%;
+         font-size: 15px;
+         letter-spacing: 1px;
+         box-shadow: 0 0 20px var(--glow-o);
+      }
+
+      .btn-outline {
+         background: transparent;
+         border: 1px solid var(--cyan);
+         color: var(--cyan);
+         font-family: var(--font-t);
+         font-weight: 600;
+         padding: 10px 20px;
+         border-radius: var(--r-sm);
+      }
+
+      .card {
+         background: var(--card);
+         border: 1px solid var(--border);
+         border-radius: var(--r-md);
+         padding: 20px;
+         position: relative;
+         overflow: hidden;
+      }
+
+      .card::before {
+         content: '';
+         position: absolute;
+         top: 0;
+         left: 0;
+         right: 0;
+         height: 1px;
+         background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+         animation: scanline 3s infinite;
+         opacity: 0.5;
+      }
+
+      .card:hover {
+         transform: translateY(-2px);
+         border-color: rgba(0, 245, 255, 0.3);
+         box-shadow: 0 0 20px var(--glow-c);
+      }
+
+      .tag {
+         display: inline-block;
+         padding: 4px 10px;
+         border-radius: 20px;
+         font-size: 11px;
+         font-family: var(--font-b);
+         font-weight: 500;
+      }
+
+      .tag-cyan {
+         background: rgba(0, 245, 255, 0.1);
+         color: var(--cyan);
+         border: 1px solid rgba(0, 245, 255, 0.2);
+      }
+
+      .tag-orange {
+         background: rgba(255, 107, 53, 0.1);
+         color: var(--orange);
+         border: 1px solid rgba(255, 107, 53, 0.2);
+      }
+
+      .tag-green {
+         background: rgba(57, 255, 20, 0.1);
+         color: var(--green);
+         border: 1px solid rgba(57, 255, 20, 0.2);
+      }
+
+      .tag-purple {
+         background: rgba(124, 58, 237, 0.1);
+         color: var(--purple);
+         border: 1px solid rgba(124, 58, 237, 0.2);
+      }
+
+      @keyframes scanline {
+
+         0%,
+         100% {
+            opacity: 0;
+         }
+
+         50% {
+            opacity: 0.6;
+         }
+      }
+
+      @keyframes fadeUp {
+         from {
+            opacity: 0;
+            transform: translateY(20px);
+         }
+
+         to {
+            opacity: 1;
+            transform: translateY(0);
+         }
+      }
+
+      @keyframes glow-pulse {
+
+         0%,
+         100% {
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.2);
+         }
+
+         50% {
+            box-shadow: 0 0 40px rgba(0, 245, 255, 0.5);
+         }
+      }
+
+      @keyframes float-orb {
+         0% {
+            transform: translate(0, 0) scale(1);
+         }
+
+         33% {
+            transform: translate(30px, -20px) scale(1.1);
+         }
+
+         66% {
+            transform: translate(-20px, 15px) scale(0.95);
+         }
+
+         100% {
+            transform: translate(0, 0) scale(1);
+         }
+      }
+
+      @keyframes morph {
+         0% {
+            border-radius: 60% 40% 30% 70%/60% 30% 70% 40%;
+         }
+
+         50% {
+            border-radius: 30% 60% 70% 40%/50% 60% 30% 60%;
+         }
+
+         100% {
+            border-radius: 60% 40% 30% 70%/60% 30% 70% 40%;
+         }
+      }
+
+      @keyframes typing-cursor {
+
+         0%,
+         100% {
+            opacity: 1;
+         }
+
+         50% {
+            opacity: 0;
+         }
+      }
+
+      @keyframes bar-fill {
+         from {
+            width: 0;
+         }
+      }
+
+      @keyframes confetti-fall {
+         0% {
+            transform: translateY(0) rotate(0);
+            opacity: 1;
+         }
+
+         100% {
+            transform: translateY(100vh) rotate(720deg);
+            opacity: 0;
+         }
+      }
+
+      .stagger>* {
+         opacity: 0;
+         animation: fadeUp .5s ease forwards;
+      }
+
+      .stagger>*:nth-child(1) {
+         animation-delay: .1s;
+      }
+
+      .stagger>*:nth-child(2) {
+         animation-delay: .2s;
+      }
+
+      .stagger>*:nth-child(3) {
+         animation-delay: .3s;
+      }
+
+      .stagger>*:nth-child(4) {
+         animation-delay: .4s;
+      }
+
+      .stagger>*:nth-child(5) {
+         animation-delay: .5s;
+      }
+
+      .stagger>*:nth-child(6) {
+         animation-delay: .6s;
+      }
+
+      .stagger>*:nth-child(7) {
+         animation-delay: .7s;
+      }
+
+      .stagger>*:nth-child(8) {
+         animation-delay: .8s;
+      }
+
+      .ambient-bg {
+         position: fixed;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+         pointer-events: none;
+         z-index: 0;
+      }
+
+      .ambient-bg .orb {
+         position: absolute;
+         width: 300px;
+         height: 300px;
+         border-radius: 50%;
+         filter: blur(80px);
+         opacity: 0.15;
+      }
+
+      .ambient-bg .orb-1 {
+         background: var(--cyan);
+         top: -100px;
+         left: -100px;
+         animation: float-orb 8s ease-in-out infinite;
+      }
+
+      .ambient-bg .orb-2 {
+         background: var(--purple);
+         bottom: -100px;
+         right: -100px;
+         animation: float-orb 10s ease-in-out infinite reverse;
+      }
+
+      #boot-screen {
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         flex-direction: column;
+         background: #000;
+         z-index: 9999;
+      }
+
+      #boot-screen canvas {
+         position: absolute;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+      }
+
+      #boot-screen .boot-content {
+         position: relative;
+         z-index: 2;
+         text-align: center;
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         gap: 8px;
+      }
+
+      #boot-screen .logo {
+         font-family: var(--font-d);
+         font-size: clamp(3rem, 10vw, 7rem);
+         font-weight: 900;
+         color: var(--cyan);
+         text-shadow: 0 0 40px var(--cyan), 0 0 80px rgba(0, 245, 255, 0.4);
+         opacity: 0;
+         transition: opacity 1s;
+      }
+
+      #boot-screen .ver {
+         font-family: var(--font-b);
+         font-size: 13px;
+         color: var(--muted);
+         opacity: 0;
+         transition: opacity .5s;
+      }
+
+      #boot-screen .ticker {
+         font-family: var(--font-b);
+         font-size: 10px;
+         color: var(--muted);
+         opacity: 0;
+         letter-spacing: 1px;
+         transition: opacity .5s;
+      }
+
+      #boot-screen .typing-area {
+         font-family: var(--font-b);
+         font-size: 12px;
+         color: var(--green);
+         min-height: 60px;
+         text-align: left;
+         width: clamp(280px, 80vw, 400px);
+      }
+
+      #boot-screen .typing-area .cursor {
+         display: inline-block;
+         width: 8px;
+         height: 14px;
+         background: var(--green);
+         margin-left: 2px;
+         animation: typing-cursor .6s infinite;
+      }
+
+      #boot-screen .load-bar {
+         width: clamp(280px, 80vw, 400px);
+         height: 3px;
+         background: rgba(255, 255, 255, 0.06);
+         border-radius: 4px;
+         margin-top: 12px;
+         overflow: hidden;
+      }
+
+      #boot-screen .load-bar .fill {
+         height: 100%;
+         width: 0;
+         background: var(--cyan);
+         border-radius: 4px;
+         box-shadow: 0 0 10px var(--cyan);
+         transition: width .05s linear;
+      }
+
+      #login-screen,
+      #signup-screen {
+         background: var(--bg1);
+         padding: 40px 24px;
+         align-items: center;
+         justify-content: center;
+      }
+
+      .auth-box {
+         width: 100%;
+         max-width: 400px;
+         display: flex;
+         flex-direction: column;
+         gap: 16px;
+         align-items: center;
+      }
+
+      .auth-box .logo-sm {
+         font-family: var(--font-d);
+         font-size: 2rem;
+         font-weight: 900;
+         color: var(--cyan);
+         text-shadow: 0 0 20px rgba(0, 245, 255, 0.4);
+      }
+
+      .auth-box .label {
+         font-family: var(--font-t);
+         font-size: 13px;
+         color: var(--muted);
+         letter-spacing: 3px;
+         text-transform: uppercase;
+      }
+
+      .auth-box .field {
+         width: 100%;
+         position: relative;
+      }
+
+      .auth-box .field input {
+         width: 100%;
+         padding-right: 44px;
+      }
+
+      .auth-box .toggle-pw {
+         position: absolute;
+         right: 12px;
+         top: 50%;
+         transform: translateY(-50%);
+         background: none;
+         color: var(--muted);
+         font-size: 18px;
+         padding: 4px;
+      }
+
+      .or-div {
+         display: flex;
+         align-items: center;
+         gap: 12px;
+         width: 100%;
+         color: var(--muted);
+         font-size: 12px;
+      }
+
+      .or-div::before,
+      .or-div::after {
+         content: '';
+         flex: 1;
+         height: 1px;
+         background: var(--border);
+      }
+
+      .google-btn {
+         width: 100%;
+         padding: 12px;
+         background: var(--card);
+         border: 1px solid var(--border);
+         border-radius: var(--r-sm);
+         color: var(--text);
+         font-family: var(--font-t);
+         font-size: 14px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         gap: 10px;
+      }
+
+      .auth-link {
+         color: var(--cyan);
+         font-size: 13px;
+         background: none;
+         font-family: var(--font-b);
+      }
+
+      .auth-link:hover {
+         text-decoration: underline;
+      }
+
+      #onboarding-screen {
+         background: var(--bg1);
+         padding: 40px 24px;
+         align-items: center;
+      }
+
+      .onboard-container {
+         width: 100%;
+         max-width: 440px;
+         display: flex;
+         flex-direction: column;
+         gap: 20px;
+      }
+
+      .onboard-progress {
+         display: flex;
+         gap: 6px;
+         width: 100%;
+      }
+
+      .onboard-progress .dot {
+         flex: 1;
+         height: 4px;
+         border-radius: 4px;
+         background: rgba(255, 255, 255, 0.08);
+         transition: background .3s;
+      }
+
+      .onboard-progress .dot.active {
+         background: var(--cyan);
+         box-shadow: 0 0 8px var(--glow-c);
+      }
+
+      .onboard-step {
+         display: none;
+         flex-direction: column;
+         gap: 16px;
+      }
+
+      .onboard-step.active {
+         display: flex;
+      }
+
+      .onboard-step h2 {
+         font-family: var(--font-d);
+         font-size: 1.2rem;
+         color: var(--cyan);
+      }
+
+      .onboard-step p {
+         font-size: 13px;
+         color: var(--muted);
+      }
+
+      .chip-grid {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 10px;
+      }
+
+      .chip {
+         padding: 10px 16px;
+         background: var(--card);
+         border: 1px solid var(--border);
+         border-radius: var(--r-sm);
+         font-family: var(--font-t);
+         font-size: 13px;
+         color: var(--text);
+         cursor: pointer;
+         transition: all .2s;
+      }
+
+      .chip.selected {
+         border-color: var(--cyan);
+         background: rgba(0, 245, 255, 0.08);
+         color: var(--cyan);
+         box-shadow: 0 0 12px var(--glow-c);
+      }
+
+      .goal-input-row {
+         display: flex;
+         gap: 8px;
+      }
+
+      .goal-input-row input {
+         flex: 1;
+      }
+
+      .goal-input-row button {
+         width: 44px;
+         height: 44px;
+         border-radius: var(--r-sm);
+         background: var(--cyan);
+         color: var(--bg1);
+         font-size: 20px;
+         flex-shrink: 0;
+      }
+
+      .goals-list {
+         display: flex;
+         flex-direction: column;
+         gap: 8px;
+      }
+
+      .goals-list .goal-item {
+         padding: 10px 14px;
+         background: var(--card);
+         border: 1px solid var(--border);
+         border-radius: var(--r-sm);
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         font-size: 13px;
+      }
+
+      .goals-list .goal-item button {
+         background: none;
+         color: var(--orange);
+         font-size: 16px;
+      }
+
+      .slider-row {
+         display: flex;
+         flex-direction: column;
+         gap: 8px;
+      }
+
+      .slider-row input[type=range] {
+         -webkit-appearance: none;
+         width: 100%;
+         height: 6px;
+         border-radius: 4px;
+         background: var(--card2);
+         border: none;
+         outline: none;
+      }
+
+      .slider-row input[type=range]::-webkit-slider-thumb {
+         -webkit-appearance: none;
+         width: 20px;
+         height: 20px;
+         border-radius: 50%;
+         background: var(--cyan);
+         box-shadow: 0 0 10px var(--cyan);
+         cursor: pointer;
+      }
+
+      .slider-row .val {
+         font-family: var(--font-d);
+         font-size: 1.5rem;
+         color: var(--cyan);
+         text-align: center;
+      }
+
+      .time-row {
+         display: flex;
+         gap: 12px;
+      }
+
+      .time-row .field {
+         flex: 1;
+      }
+
+      .time-row label {
+         font-size: 12px;
+         color: var(--muted);
+         margin-bottom: 4px;
+         display: block;
+      }
+
+      .check-row {
+         display: flex;
+         flex-direction: column;
+         gap: 10px;
+      }
+
+      .check-row label {
+         display: flex;
+         align-items: center;
+         gap: 10px;
+         font-size: 13px;
+         cursor: pointer;
+      }
+
+      .check-row input[type=checkbox] {
+         width: 18px;
+         height: 18px;
+         accent-color: var(--cyan);
+      }
+
+      .nav-btn {
+         background: none;
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         justify-content: center;
+         gap: 4px;
+         width: 60px;
+         color: var(--muted);
+         transition: all .3s;
+      }
+
+      .nav-btn span {
+         font-size: 20px;
+         filter: grayscale(1);
+         opacity: 0.6;
+         transition: all .3s;
+      }
+
+      .nav-btn small {
+         font-size: 8px;
+         font-family: var(--font-d);
+         letter-spacing: 1px;
+      }
+
+      .nav-btn.active {
+         color: var(--cyan);
+      }
+
+      .nav-btn.active span {
+         filter: grayscale(0);
+         opacity: 1;
+         transform: translateY(-2px);
+      }
+
+      .nav-fab {
+         width: 64px;
+         height: 64px;
+         background: linear-gradient(135deg, var(--cyan), var(--purple));
+         border-radius: 50%;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         font-size: 30px;
+         box-shadow: 0 0 20px var(--glow-c);
+         margin-top: -30px;
+         border: 4px solid var(--bg2);
+         transition: transform .2s, box-shadow .3s;
+      }
+
+      .nav-fab:hover {
+         transform: scale(1.1) rotate(5deg);
+         box-shadow: 0 0 30px var(--glow-c);
+      }
+   </style>
+</head>
+
+<body>
+   <div class="ambient-bg">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+   </div>
+
+   <!-- BOOT SCREEN -->
+   <div id="boot-screen" class="screen active no-pad">
+      <canvas id="matrix-canvas"></canvas>
+      <div class="boot-content">
+         <div class="logo" id="boot-logo">RAGE OS</div>
+         <div class="ver" id="boot-ver">V.4.2.0 // ONLINE</div>
+         <div class="ticker" id="boot-ticker">SYSTEM OPTIMAL. LEARNING MODULES SYNCED.</div>
+         <div class="typing-area" id="boot-typing"></div>
+         <div class="load-bar">
+            <div class="fill" id="boot-bar"></div>
+         </div>
+      </div>
+   </div>
+
+   <!-- LOGIN SCREEN -->
+   <div id="login-screen" class="screen no-pad">
+      <div class="auth-box stagger">
+         <div class="logo-sm">RAGE OS</div>
+         <div class="label">CADET AUTHENTICATION</div>
+         <div class="field"><input type="email" id="login-email" placeholder="Email"></div>
+         <div class="field"><input type="password" id="login-pw" placeholder="Password"><button class="toggle-pw"
+               onclick="togglePw('login-pw')">👁</button></div>
+         <button class="btn-cyan" onclick="doLogin()">ENGAGE</button>
+         <button class="auth-link" onclick="alert('Check email for reset link')">FORGOT ACCESS CODES?</button>
+         <div class="or-div">OR</div>
+         <button class="google-btn" onclick="doGoogleLogin()">
+            <svg width="18" height="18" viewBox="0 0 48 48">
+               <path fill="#EA4335"
+                  d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+               <path fill="#4285F4"
+                  d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+               <path fill="#FBBC05"
+                  d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+               <path fill="#34A853"
+                  d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+            </svg>
+            Sign in with Google
+         </button>
+         <button class="auth-link" onclick="showScreen('signup-screen')">New Cadet? <span
+               style="color:var(--cyan)">ENLIST NOW →</span></button>
+      </div>
+   </div>
+
+   <!-- SIGNUP SCREEN -->
+   <div id="signup-screen" class="screen no-pad">
+      <div class="auth-box stagger">
+         <div class="logo-sm">RAGE OS</div>
+         <div class="label">ENLIST TO RAGE OS</div>
+         <div class="field"><input type="text" id="signup-name" placeholder="Full Name"></div>
+         <div class="field"><input type="text" id="signup-user" placeholder="@Username"></div>
+         <div class="field"><input type="email" id="signup-email" placeholder="Email"></div>
+         <div class="field"><input type="password" id="signup-pw" placeholder="Password"><button class="toggle-pw"
+               onclick="togglePw('signup-pw')">👁</button></div>
+         <div class="field"><input type="password" id="signup-cpw" placeholder="Confirm Password"></div>
+         <button class="btn-cyan" onclick="doSignup()">BEGIN MISSION</button>
+         <button class="auth-link" onclick="showScreen('login-screen')">Already enlisted? <span
+               style="color:var(--cyan)">LOGIN →</span></button>
+      </div>
+   </div>
+
+   <!-- ONBOARDING -->
+   <div id="onboarding-screen" class="screen no-pad">
+      <div class="onboard-container">
+         <div class="onboard-progress" id="ob-progress"></div>
+         <div class="onboard-step active" id="ob-step-0">
+            <h2>SELECT YOUR SUBJECTS</h2>
+            <p>Choose the subjects you're studying</p>
+            <div class="chip-grid" id="subject-chips"></div>
+         </div>
+         <div class="onboard-step" id="ob-step-1">
+            <h2>SET YOUR DIRECTIVES</h2>
+            <p>Add up to 5 goals</p>
+            <div class="goal-input-row"><input type="text" id="goal-input" placeholder="Enter a goal"><button
+                  onclick="addGoal()">+</button></div>
+            <div class="goals-list" id="goals-list"></div>
+         </div>
+         <div class="onboard-step" id="ob-step-2">
+            <h2>CONFIGURE YOUR SCHEDULE</h2>
+            <p>Set your daily study target and sleep schedule</p>
+            <div class="slider-row"><label style="color:var(--muted);font-size:12px">Daily Study Target</label>
+               <div class="val" id="study-val">4 hours</div><input type="range" min="1" max="12" value="4"
+                  oninput="document.getElementById('study-val').textContent=this.value+' hours'">
+            </div>
+            <div class="time-row" style="margin-top:16px">
+               <div class="field"><label>Wake Time</label><input type="time" id="wake-time" value="06:00"></div>
+               <div class="field"><label>Sleep Time</label><input type="time" id="sleep-time" value="23:00"></div>
+            </div>
+         </div>
+         <div class="onboard-step" id="ob-step-3">
+            <h2>BATTERY SETTINGS</h2>
+            <p>Configure your notification preferences</p>
+            <div class="check-row">
+               <label><input type="checkbox" checked>Morning briefing</label>
+               <label><input type="checkbox" checked>Idle alerts</label>
+               <label><input type="checkbox" checked>Streak warnings</label>
+               <label><input type="checkbox">Friend activity</label>
+            </div>
+         </div>
+         <div class="onboard-step" id="ob-step-4">
+            <h2>FIND YOUR SQUAD</h2>
+            <p>Search and follow other cadets</p>
+            <input type="text" placeholder="Search by @username" style="margin-bottom:12px">
+            <div style="color:var(--muted);font-size:13px;text-align:center;padding:30px">Squad discovery will be
+               available once more cadets enlist.</div>
+         </div>
+         <div style="display:flex;gap:10px;margin-top:12px;">
+            <button class="btn-outline" id="ob-back" onclick="obStep(-1)" style="display:none;flex:1">BACK</button>
+            <button class="btn-cyan" id="ob-next" onclick="obStep(1)" style="flex:1">NEXT</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- Screens placeholder: injected by JS below -->
+   <div id="war-room" class="screen"></div>
+   <div id="the-grid" class="screen"></div>
+   <div id="rage-core" class="screen"></div>
+   <div id="life-radar" class="screen"></div>
+   <div id="the-vault" class="screen"></div>
+   <div id="north-star" class="screen"></div>
+   <div id="the-commander" class="screen"></div>
+   <div id="the-network" class="screen"></div>
+   <div id="comms-screen" class="screen"></div>
+   <div id="notifications-screen" class="screen"></div>
+   <div id="challenges-screen" class="screen"></div>
+
+   <!-- BOTTOM NAV -->
+   <div id="bottom-nav"
+      style="display:none;position:fixed;bottom:12px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:440px;height:64px;background:rgba(13,21,38,0.85);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r-nav);display:none;align-items:center;justify-content:space-around;z-index:100;box-shadow:0 0 20px var(--glow-c);">
+      <button class="nav-btn active" data-screen="war-room"
+         onclick="navigate('war-room')"><span>🏠</span><small>COMMAND</small></button>
+      <button class="nav-btn" data-screen="the-network"
+         onclick="navigate('the-network')"><span>⚔️</span><small>ARENA</small></button>
+      <button class="nav-fab" onclick="navigate('rage-core')">🤖</button>
+      <button class="nav-btn" data-screen="comms-screen"
+         onclick="navigate('comms-screen')"><span>💬</span><small>COMMS</small></button>
+      <button class="nav-btn" data-screen="the-commander"
+         onclick="navigate('the-commander')"><span>👤</span><small>ID</small></button>
+   </div>
+
+   <div id="confetti-container"
+      style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;"></div>
+   <div id="toast-container"
+      style="position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;">
+   </div>
+
+   <script>
+      /* ═══════════════════════════════════════
+         RAGE OS — Core Engine
+         ═══════════════════════════════════════ */
+      const SUPABASE_URL = 'https://tfevioftlgnhumwducyq.supabase.co';
+      const SUPABASE_KEY = 'sb_publishable_6zZgExehxa0CNiIgSIdqUg_x4OPCmMA';
+      const GEMINI_KEY = 'AIzaSyC0I5RH7oJQsyX6dG5Vk-aTLJYn54X6Iok';
+
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // ─── State ───
+      let currentScreen = 'boot-screen';
+      let user = JSON.parse(localStorage.getItem('rage_user') || 'null');
+      let tasks = JSON.parse(localStorage.getItem('rage_tasks') || '[]');
+      let goals = JSON.parse(localStorage.getItem('rage_goals') || '[]');
+      let chatHistory = JSON.parse(localStorage.getItem('rage_chat') || '[]');
+      let timetable = JSON.parse(localStorage.getItem('rage_timetable') || '[]');
+      let dailyLog = JSON.parse(localStorage.getItem('rage_daily') || '{}');
+      let habits = JSON.parse(localStorage.getItem('rage_habits') || '[]');
+      let obGoals = [];
+      let obStepIdx = 0;
+
+      async function save() {
+         // Always save to localStorage first (fast)
+         localStorage.setItem('rage_user', JSON.stringify(user));
+         localStorage.setItem('rage_tasks', JSON.stringify(tasks));
+         localStorage.setItem('rage_goals', JSON.stringify(goals));
+         localStorage.setItem('rage_chat', JSON.stringify(chatHistory));
+         localStorage.setItem('rage_timetable', JSON.stringify(timetable));
+         localStorage.setItem('rage_daily', JSON.stringify(dailyLog));
+         localStorage.setItem('rage_habits', JSON.stringify(habits));
+
+         // Then sync to Supabase (persistent)
+         if (supabase && user?.id) {
+            try {
+               // Sync User Public Profile
+               await supabase.from('users_public').upsert({
+                  id: user.id,
+                  name: user.user_metadata?.name || user.name,
+                  username: user.user_metadata?.username || user.username,
+                  xp: user.xp || 0,
+                  streak: user.streak || 0,
+                  level: user.level || 1,
+                  subjects: user.subjects || []
+               });
+
+               // Sync Tasks
+               if (tasks.length > 0) {
+                  const tasksToSync = tasks.map(t => ({ ...t, user_id: user.id }));
+                  await supabase.from('tasks').upsert(tasksToSync);
+               }
+
+               // Sync Goals
+               if (goals.length > 0) {
+                  const goalsToSync = goals.map(g => ({ ...g, user_id: user.id }));
+                  await supabase.from('goals').upsert(goalsToSync);
+               }
+
+               // Sync Daily Logs
+               if (dailyLog.date) {
+                  await supabase.from('daily_logs').upsert({ ...dailyLog, user_id: user.id });
+               }
+
+               // Sync Timetable
+               if (timetable.length > 0) {
+                  const ttToSync = timetable.map(b => ({ ...b, user_id: user.id }));
+                  await supabase.from('timetable_blocks').upsert(ttToSync);
+               }
+
+               // Sync Chat History (RAGE Core)
+               if (chatHistory.length > 0) {
+                  const chatToSync = chatHistory.map(m => ({ ...m, user_id: user.id }));
+                  await supabase.from('chat_history').upsert(chatToSync);
+               }
+            } catch (e) {
+               console.error('Supabase Sync Error:', e);
+            }
+         }
+      }
+
+      async function callGemini(userMsg) {
+         const profile = JSON.parse(localStorage.getItem('rage_user') || '{}');
+         const tasksData = JSON.parse(localStorage.getItem('rage_tasks') || '[]');
+         const goalsData = JSON.parse(localStorage.getItem('rage_goals') || '[]');
+         const history = JSON.parse(localStorage.getItem('rage_chat') || '[]');
+         const daily = JSON.parse(localStorage.getItem('rage_daily') || '{}');
+
+         const systemContext = `
+You are RAGE — Rise. Act. Grow. Excel.
+You are the personal AI life coach and best friend of ${profile.name || 'Shivam'}, a distance-learning student who studies from home.
+
+You speak like a brilliant older brother who has seen the world and genuinely cares whether ${profile.name || 'Shivam'} succeeds or not.
+Sometimes call him "Cadet" but also speak naturally. Be direct, warm, honest, and tough when needed. Never be generic.
+
+CURRENT DATA YOU KNOW:
+Name: ${profile.name || 'Shivam'}
+Level: ${profile.level || 1}
+XP: ${profile.xp || 0}
+Streak: ${profile.streak || 0} days
+Subjects: ${(profile.subjects || []).join(', ')}
+Study target: ${profile.studyTarget || 4} hours/day
+Wake time: ${profile.wakeTime || '06:00'}
+Sleep time: ${profile.sleepTime || '23:00'}
+Today's mood: ${daily.mood !== undefined ? ['😴 Low energy', '😐 Neutral', '😊 Good', '🔥 On fire', '⚡ Beast mode'][daily.mood] : 'Not logged yet'}
+Study hours today: ${daily.studyHours || 0}h
+Tasks done today: ${tasksData.filter(t => t.done && t.date === new Date().toDateString()).length}
+Active goals: ${goalsData.map(g => g.title).join(', ')}
+
+CONVERSATION HISTORY (last 10 messages):
+${history.slice(-10).map(m => m.role + ': ' + m.content).join('\n')}
+
+Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to his actual data above. Never say generic things.
+`;
+
+         try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  contents: [{
+                     parts: [{ text: systemContext + '\n\nUser: ' + userMsg }]
+                  }],
+                  generationConfig: {
+                     temperature: 0.8,
+                     maxOutputTokens: 300
+                  }
+               })
+            });
+            const data = await res.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Signal lost. Try again, Cadet.';
+         } catch (e) {
+            console.error(e);
+            return 'Signal lost. Try again, Cadet.';
+         }
+      }
+
+      // ─── Navigation ───
+      function showScreen(id) {
+         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+         const s = document.getElementById(id); if (s) s.classList.add('active');
+         currentScreen = id;
+         const nav = document.getElementById('bottom-nav');
+         const mainScreens = ['war-room', 'the-grid', 'rage-core', 'life-radar', 'the-vault', 'north-star', 'the-commander', 'the-network', 'comms-screen', 'notifications-screen', 'challenges-screen'];
+         nav.style.display = mainScreens.includes(id) ? 'flex' : 'none';
+         document.querySelectorAll('.nav-btn').forEach(b => { b.classList.toggle('active', b.dataset.screen === id); });
+      }
+      function navigate(id) {
+         showScreen(id);
+         if (id === 'war-room') renderWarRoom();
+         if (id === 'the-grid') renderGrid();
+         if (id === 'rage-core') renderRageCore();
+         if (id === 'life-radar') renderRadar();
+         if (id === 'the-vault') renderVault();
+         if (id === 'north-star') renderNorthStar();
+         if (id === 'the-commander') renderCommander();
+         if (id === 'the-network') renderNetwork();
+         if (id === 'comms-screen') renderComms();
+         if (id === 'notifications-screen') renderNotifications();
+         if (id === 'challenges-screen') renderChallenges();
+      }
+
+      // ─── Utilities ───
+      function toast(msg, color = 'var(--cyan)') {
+         const t = document.createElement('div');
+         t.style.cssText = `padding:10px 20px;background:var(--card2);border:1px solid ${color};border-radius:var(--r-sm);color:${color};font-family:var(--font-b);font-size:12px;animation:fadeUp .3s ease;pointer-events:auto;`;
+         t.textContent = msg; document.getElementById('toast-container').appendChild(t);
+         setTimeout(() => t.remove(), 3000);
+      }
+      function togglePw(id) { const i = document.getElementById(id); i.type = i.type === 'password' ? 'text' : 'password'; }
+      function confetti() {
+         const c = document.getElementById('confetti-container');
+         const colors = ['var(--cyan)', 'var(--orange)', 'var(--green)', 'var(--purple)'];
+         for (let i = 0; i < 30; i++) {
+            const p = document.createElement('div');
+            p.style.cssText = `position:absolute;top:-10px;left:${Math.random() * 100}%;width:${6 + Math.random() * 6}px;height:${6 + Math.random() * 6}px;background:${colors[i % 4]};border-radius:${Math.random() > .5 ? '50%' : '2px'};animation:confetti-fall ${1 + Math.random() * 2}s ease forwards;animation-delay:${Math.random() * .3}s;`;
+            c.appendChild(p);
+         } setTimeout(() => c.innerHTML = '', 3500);
+      }
+      function getTimeGreeting() { const h = new Date().getHours(); return h < 12 ? 'GOOD MORNING' : h < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING'; }
+      function fmtDate(d) { return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
+      function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+      function getBattery() {
+         const today = new Date().toDateString();
+         let score = 0;
+         const done = tasks.filter(t => t.done && t.date === today).length;
+         const total = tasks.filter(t => t.date === today).length;
+         if (total > 0) score += Math.round((done / total) * 30);
+         if (dailyLog.mood) score += 5;
+         if (dailyLog.workout) score += 20;
+         if (dailyLog.studyHours >= 2) score += 30;
+         if (dailyLog.sleepOnTime) score += 15;
+         return Math.min(score, 100);
+      }
+      function getXP() { return user ? user.xp || 0 : 0; }
+      function getLevel() { const xp = getXP(); if (xp < 200) return { lvl: 1, title: 'Recruit' }; if (xp < 500) return { lvl: 2, title: 'Recruit' }; if (xp < 1000) return { lvl: 3, title: 'Cadet' }; if (xp < 1800) return { lvl: 4, title: 'Cadet' }; if (xp < 2800) return { lvl: 5, title: 'Operative' }; if (xp < 4000) return { lvl: 6, title: 'Operative' }; if (xp < 5500) return { lvl: 7, title: 'Commander' }; if (xp < 7500) return { lvl: 8, title: 'Commander' }; if (xp < 10000) return { lvl: 9, title: 'Elite' }; return { lvl: 10, title: 'Legend' }; }
+      function addXP(n) { if (!user) return; user.xp = (user.xp || 0) + n; save(); toast(`+${n} XP`, 'var(--cyan)'); }
+      function getLevelBounds() { const xp = getXP(); const thresholds = [0, 200, 500, 1000, 1800, 2800, 4000, 5500, 7500, 10000, 15000]; const lv = getLevel().lvl; return { cur: thresholds[lv - 1], next: thresholds[lv], xp }; }
+
+      /* ═══════════════════════════════════════
+         BOOT SEQUENCE
+         ═══════════════════════════════════════ */
+      (function bootSequence() {
+         const canvas = document.getElementById('matrix-canvas');
+         const ctx = canvas.getContext('2d');
+         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%';
+         const fontSize = 14; const cols = Math.floor(canvas.width / fontSize);
+         const drops = Array(cols).fill(1);
+         function drawMatrix() {
+            ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00F5FF'; ctx.font = fontSize + 'px DM Mono';
+            for (let i = 0; i < drops.length; i++) {
+               const t = chars[Math.floor(Math.random() * chars.length)];
+               ctx.fillText(t, i * fontSize, drops[i] * fontSize);
+               if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+               drops[i]++;
+            }
+         }
+         const mi = setInterval(drawMatrix, 40);
+         setTimeout(() => { document.getElementById('boot-logo').style.opacity = '1'; }, 2200);
+         setTimeout(() => { document.getElementById('boot-ver').style.opacity = '1'; document.getElementById('boot-ticker').style.opacity = '1'; }, 2600);
+         const typingLines = ["Initializing RAGE OS...", "Syncing Shivam's data...", "All systems online. Welcome back, Cadet."];
+         let li = 0, ci = 0;
+         const ta = document.getElementById('boot-typing');
+         function typeNext() {
+            if (li >= typingLines.length) return;
+            ta.innerHTML = '> ' + typingLines[li].slice(0, ci) + '<span class="cursor"></span>';
+            ci++;
+            if (ci > typingLines[li].length) { li++; ci = 0; ta.innerHTML += '\n'; setTimeout(typeNext, 400); }
+            else setTimeout(typeNext, 30);
+         }
+         setTimeout(typeNext, 3000);
+         const bar = document.getElementById('boot-bar');
+         let bp = 0;
+         const bi = setInterval(() => {
+            bp += 2; bar.style.width = bp + '%'; if (bp >= 100) {
+               clearInterval(bi); clearInterval(mi);
+               setTimeout(() => {
+                  if (user && user.name) { showScreen('war-room'); navigate('war-room'); }
+                  else showScreen('login-screen');
+               }, 400);
+            }
+         }, 40);
+      })();
+
+      /* ═══════════════════════════════════════
+         AUTH
+         ═══════════════════════════════════════ */
+      async function doLogin() {
+         const { data, error } = await supabase.auth.signInWithPassword({
+            email: document.getElementById('login-email').value,
+            password: document.getElementById('login-pw').value
+         });
+         if (error) return toast(error.message, 'var(--orange)');
+         user = data.user;
+         // Fetch public profile to get xp, level etc
+         const { data: profile } = await supabase.from('users_public').select('*').eq('id', user.id).single();
+         if (profile) {
+            user = { ...user, ...profile };
+         }
+         save();
+         navigate('war-room');
+         toast('Welcome back, Cadet.');
+      }
+      async function doSignup() {
+         const name = document.getElementById('signup-name').value;
+         const uname = document.getElementById('signup-user').value;
+         const email = document.getElementById('signup-email').value;
+         const pw = document.getElementById('signup-pw').value;
+         const cpw = document.getElementById('signup-cpw').value;
+         if (!name || !uname || !email || !pw) return toast('Fill all fields', 'var(--orange)');
+         if (pw !== cpw) return toast('Passwords do not match', 'var(--orange)');
+
+         const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: pw,
+            options: {
+               data: {
+                  name: name,
+                  username: uname
+               }
+            }
+         });
+         if (error) return toast(error.message, 'var(--orange)');
+
+         user = {
+            ...data.user,
+            name: name,
+            username: uname,
+            xp: 0, streak: 0, level: 1, subjects: []
+         };
+         save();
+         initOnboarding();
+         showScreen('onboarding-screen');
+         toast(`Welcome to RAGE OS, ${name}!`);
+      }
+      async function doGoogleLogin() {
+         const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+         if (error) toast(error.message, 'var(--orange)');
+      }
+
+      /* ═══════════════════════════════════════
+         ONBOARDING
+         ═══════════════════════════════════════ */
+      const SUBJECTS = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Economics', 'Computer Science', 'Political Science', 'Psychology', 'Sociology', 'Hindi', 'Geography'];
+      function initOnboarding() {
+         obStepIdx = 0; obGoals = [];
+         const pg = document.getElementById('ob-progress'); pg.innerHTML = '';
+         for (let i = 0; i < 5; i++) { const d = document.createElement('div'); d.className = 'dot' + (i === 0 ? ' active' : ''); pg.appendChild(d); }
+         const sc = document.getElementById('subject-chips'); sc.innerHTML = '';
+         SUBJECTS.forEach(s => { const c = document.createElement('button'); c.className = 'chip'; c.textContent = s; c.onclick = () => { c.classList.toggle('selected'); }; sc.appendChild(c); });
+         document.getElementById('ob-back').style.display = 'none';
+         document.getElementById('ob-next').textContent = 'NEXT';
+      }
+      function addGoal() {
+         const inp = document.getElementById('goal-input');
+         if (!inp.value.trim() || obGoals.length >= 5) return;
+         obGoals.push(inp.value.trim()); inp.value = ''; renderObGoals();
+      }
+      function renderObGoals() {
+         const l = document.getElementById('goals-list'); l.innerHTML = '';
+         obGoals.forEach((g, i) => { l.innerHTML += `<div class="goal-item"><span>${g}</span><button onclick="obGoals.splice(${i},1);renderObGoals()">✕</button></div>`; });
+      }
+      function obStep(dir) {
+         const steps = document.querySelectorAll('.onboard-step');
+         steps[obStepIdx].classList.remove('active');
+         obStepIdx += dir;
+         if (obStepIdx >= 5) {
+            // Finish onboarding
+            const selected = [...document.querySelectorAll('#subject-chips .chip.selected')].map(c => c.textContent);
+            user.subjects = selected;
+            user.goals = obGoals.map(g => ({ id: uid(), title: g, category: 'Academic', progress: 0, status: 'active', deadline: '', createdAt: new Date().toISOString() }));
+            goals = user.goals; save();
+            navigate('war-room'); toast("Your journey starts now. Let's build something real."); confetti();
+            return;
+         }
+         if (obStepIdx < 0) obStepIdx = 0;
+         steps[obStepIdx].classList.add('active');
+         document.querySelectorAll('.onboard-progress .dot').forEach((d, i) => d.classList.toggle('active', i <= obStepIdx));
+         document.getElementById('ob-back').style.display = obStepIdx > 0 ? 'block' : 'none';
+         document.getElementById('ob-next').textContent = obStepIdx === 4 ? 'LAUNCH' : 'NEXT';
+      }
+
+      /* ═══════════════════════════════════════
+         WAR ROOM
+         ═══════════════════════════════════════ */
+      function renderWarRoom() {
+         const s = document.getElementById('war-room');
+         const today = new Date().toDateString();
+         const todayTasks = tasks.filter(t => t.date === today);
+         const done = todayTasks.filter(t => t.done).length;
+         const battery = getBattery();
+         const lv = getLevel();
+         const lb = getLevelBounds();
+         const pct = lb.next > lb.cur ? Math.round(((lb.xp - lb.cur) / (lb.next - lb.cur)) * 100) : 100;
+         s.innerHTML = `
+<div style="padding:16px 20px;position:relative;z-index:1;" class="stagger">
+<!-- Header -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+<div><span style="font-family:var(--font-d);font-size:14px;color:var(--cyan)">RAGE OS</span> <span class="tag tag-green" style="font-size:9px">● V.4.2.0 // ONLINE</span></div>
+<div style="display:flex;align-items:center;gap:12px;">
+<button onclick="navigate('notifications-screen')" style="background:none;font-size:20px;position:relative;">🔔<span style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;background:var(--orange);border-radius:50%;"></span></button>
+<div style="width:36px;height:36px;border-radius:50%;border:2px solid var(--cyan);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;" onclick="navigate('the-commander')">${user?.name ? user.name[0].toUpperCase() : 'S'}</div>
+</div>
+</div>
+<!-- Ticker -->
+<div style="overflow:hidden;height:18px;margin-bottom:16px;"><div style="white-space:nowrap;animation:ticker 20s linear infinite;font-family:var(--font-b);font-size:10px;color:var(--muted);">SYSTEM OPTIMAL ● LEARNING MODULES SYNCED ● STREAK: ${user?.streak || 0} DAYS ● BATTERY: ${battery}% ● ${getTimeGreeting()} SESSION</div></div>
+<style>@keyframes ticker{0%{transform:translateX(100%);}100%{transform:translateX(-100%);}}</style>
+<!-- Clock & Greeting -->
+<div style="text-align:center;margin-bottom:20px;">
+<div id="live-clock" style="font-family:var(--font-d);font-size:clamp(2.5rem,8vw,4rem);color:var(--cyan);text-shadow:0 0 30px rgba(0,245,255,0.4);letter-spacing:4px;"></div>
+<div style="font-family:var(--font-t);font-size:16px;color:var(--muted);letter-spacing:2px;">${getTimeGreeting()}, CADET ${(user?.name || 'SHIVAM').toUpperCase()}.</div>
+</div>
+<!-- Day Progress -->
+<div class="card" style="margin-bottom:12px;padding:14px 16px;">
+<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--muted)">DAY PROGRESS</span><span style="color:var(--cyan)" id="day-pct">0%</span></div>
+<div style="height:4px;background:var(--bg2);border-radius:4px;overflow:hidden;"><div id="day-bar" style="height:100%;background:var(--cyan);border-radius:4px;transition:width .5s;width:0;"></div></div>
+</div>
+<!-- Battery & XP -->
+<div style="display:flex;gap:10px;margin-bottom:16px;">
+<div class="card" style="flex:1;text-align:center;padding:14px;">
+<div style="font-family:var(--font-d);font-size:1.8rem;color:${battery > 60 ? 'var(--green)' : battery > 30 ? 'var(--orange)' : 'var(--orange)'};">${battery}%</div>
+<div style="font-size:11px;color:var(--muted);">BATTERY</div>
+</div>
+<div class="card" style="flex:1;text-align:center;padding:14px;">
+<div style="font-family:var(--font-d);font-size:1.8rem;color:var(--cyan);">LVL ${lv.lvl}</div>
+<div style="font-size:11px;color:var(--muted);">${lv.title.toUpperCase()}</div>
+</div>
+</div>
+<!-- Energy Check-in -->
+<div class="card" style="margin-bottom:16px;padding:14px 16px;">
+<div style="font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">SYSTEM STATUS CHECK</div>
+<div style="display:flex;justify-content:center;gap:12px;" id="mood-btns">
+${['😴', '😐', '😊', '🔥', '⚡'].map((m, i) => `<button onclick="setMood(${i})" style="font-size:28px;background:none;padding:6px 10px;border-radius:var(--r-sm);border:2px solid ${dailyLog.mood === i ? 'var(--cyan)' : 'transparent'};${dailyLog.mood === i ? 'box-shadow:0 0 12px var(--glow-c);transform:scale(1.15);' : ''}">${m}</button>`).join('')}
+</div>
+</div>
+<!-- Active Missions -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+<span style="font-family:var(--font-t);font-weight:700;font-size:15px;letter-spacing:1px;">ACTIVE MISSIONS <span class="tag tag-cyan">${todayTasks.length}</span></span>
+</div>
+<div id="missions-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+${todayTasks.length === 0 ? '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">No missions today. Add one below.</div>' : ''}
+${todayTasks.map((t, i) => `
+<div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:12px;border-left:3px solid ${t.priority === 'high' ? 'var(--orange)' : t.priority === 'medium' ? 'var(--cyan)' : 'var(--green)'};">
+<button onclick="toggleTask(${i})" style="width:24px;height:24px;border-radius:6px;border:2px solid ${t.done ? 'var(--green)' : 'var(--muted)'};background:${t.done ? 'var(--green)' : 'transparent'};color:var(--bg1);font-size:14px;flex-shrink:0;${t.done ? 'box-shadow:0 0 12px rgba(57,255,20,0.4);' : ''}">✓</button>
+<div style="flex:1;min-width:0;">
+<div style="font-family:var(--font-t);font-weight:600;font-size:14px;${t.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${t.title}</div>
+<div style="font-size:11px;color:var(--muted);display:flex;gap:8px;margin-top:2px;">${t.tag ? `<span class="tag tag-purple" style="font-size:9px">${t.tag}</span>` : ''}</div>
+</div>
+${t.done ? '<span class="tag tag-green" style="font-size:9px">COMPLETE</span>' : ''}
+</div>
+`).join('')}
+</div>
+<!-- Add Mission -->
+<div style="display:flex;gap:8px;margin-bottom:20px;">
+<input type="text" id="new-task" placeholder="New mission..." style="flex:1;font-size:13px;">
+<select id="new-task-priority" style="width:90px;font-size:12px;"><option value="medium">Medium</option><option value="high">High</option><option value="low">Low</option></select>
+<button onclick="addTask()" style="width:44px;height:44px;border-radius:var(--r-sm);background:var(--cyan);color:var(--bg1);font-size:20px;flex-shrink:0;">+</button>
+</div>
+<!-- Quick Access Grid -->
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:16px;">
+<div class="card" onclick="navigate('the-vault')" style="text-align:center;padding:15px;cursor:pointer;"><div style="font-size:24px;margin-bottom:4px;">📁</div><div style="font-family:var(--font-d);font-size:9px;letter-spacing:1px;">INTEL</div></div>
+<div class="card" onclick="navigate('comms-screen')" style="text-align:center;padding:15px;cursor:pointer;"><div style="font-size:24px;margin-bottom:4px;">💬</div><div style="font-family:var(--font-d);font-size:9px;letter-spacing:1px;">COMMS</div></div>
+<div class="card" onclick="showStudyTimer()" style="text-align:center;padding:15px;cursor:pointer;border-color:var(--cyan);box-shadow:0 0 10px var(--glow-c);"><div style="font-size:24px;margin-bottom:4px;">⏱️</div><div style="font-family:var(--font-d);font-size:9px;letter-spacing:1px;">TIMER</div></div>
+<div class="card" onclick="navigate('the-grid')" style="text-align:center;padding:15px;cursor:pointer;"><div style="font-size:24px;margin-bottom:4px;">📅</div><div style="font-family:var(--font-d);font-size:9px;letter-spacing:1px;">OPS</div></div>
+<div class="card" onclick="navigate('life-radar')" style="text-align:center;padding:15px;cursor:pointer;"><div style="font-size:24px;margin-bottom:4px;">📊</div><div style="font-family:var(--font-d);font-size:9px;letter-spacing:1px;">STATS</div></div>
+<div class="card" onclick="navigate('the-network')" style="text-align:center;padding:15px;cursor:pointer;"><div style="font-size:24px;margin-bottom:4px;">🌐</div><div style="font-family:var(--font-d);font-size:9px;letter-spacing:1px;">NETWORK</div></div>
+</div>
+<!-- XP Bar -->
+<div class="card" style="padding:14px 16px;">
+<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px;"><span>LVL ${lv.lvl} ${lv.title.toUpperCase()}</span><span>${lb.xp} / ${lb.next} XP</span></div>
+<div style="height:6px;background:var(--bg2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--cyan),var(--purple));border-radius:4px;animation:bar-fill 1s ease;"></div></div>
+</div>
+</div>`;
+         // Live clock
+         function updateClock() {
+            const now = new Date();
+            const el = document.getElementById('live-clock');
+            if (el) el.textContent = now.toTimeString().slice(0, 8);
+            const mins = now.getHours() * 60 + now.getMinutes();
+            const dayEl = document.getElementById('day-pct');
+            const dayBar = document.getElementById('day-bar');
+            const pct = Math.round((mins / 1440) * 100);
+            if (dayEl) dayEl.textContent = pct + '%';
+            if (dayBar) dayBar.style.width = pct + '%';
+         }
+         updateClock(); if (!window._clockInt) { window._clockInt = setInterval(updateClock, 1000); }
+      }
+
+      function setMood(i) { dailyLog.mood = i; save(); renderWarRoom(); }
+      function addTask() {
+         const inp = document.getElementById('new-task'); const pr = document.getElementById('new-task-priority');
+         if (!inp.value.trim()) return;
+         tasks.push({ id: uid(), title: inp.value.trim(), priority: pr.value, date: new Date().toDateString(), done: false, tag: user?.subjects?.[0] || '', xpReward: 10, createdAt: new Date().toISOString() });
+         inp.value = ''; save(); renderWarRoom(); toast('Mission added');
+      }
+      function toggleTask(i) {
+         const today = new Date().toDateString();
+         const todayTasks = tasks.filter(t => t.date === today);
+         const task = todayTasks[i];
+         const realIdx = tasks.findIndex(t => t.id === task.id);
+         if (realIdx >= 0) { tasks[realIdx].done = !tasks[realIdx].done; if (tasks[realIdx].done) { addXP(10); confetti(); } save(); renderWarRoom(); }
+      }
+      /* ═══════════════════════════════════════
+      THE GRID (TIMETABLE)
+      ═══════════════════════════════════════ */
+      function renderGrid() {
+         const s = document.getElementById('the-grid');
+         const days = [];
+         const now = new Date();
+         for (let i = 0; i < 7; i++) {
+            const d = new Date();
+            d.setDate(now.getDate() + i);
+            days.push(d);
+         }
+
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--cyan);letter-spacing:1px;">THE GRID</h1>
+            <div style="display:flex;gap:15px;"><span>📅</span><span>🔍</span></div>
+        </div>
+        
+        <!-- Date Strip -->
+        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;margin-bottom:20px;scrollbar-width:none;">
+            ${days.map((d, i) => {
+            const isSelected = i === 0; // Default to today
+            return `
+                <div class="${isSelected ? 'active' : ''}" style="flex-shrink:0;width:60px;height:80px;background:${isSelected ? 'var(--cyan)' : 'var(--card)'};border-radius:var(--r-md);display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--border)'};box-shadow:${isSelected ? '0 0 15px var(--glow-c)' : 'none'};">
+                    <div style="font-size:10px;color:${isSelected ? 'var(--bg1)' : 'var(--muted)'};font-family:var(--font-d);">${d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</div>
+                    <div style="font-size:20px;color:${isSelected ? 'var(--bg1)' : 'var(--text)'};font-family:var(--font-d);margin-top:4px;">${d.getDate()}</div>
+                </div>
+                `;
+         }).join('')}
+        </div>
+        
+        <button class="btn-cyan" style="background:linear-gradient(135deg, var(--cyan), var(--purple));margin-bottom:20px;display:flex;align-items:center;justify-content:center;gap:10px;" onclick="aiBuildDay()">
+            <span>✦</span> AI BUILD MY DAY
+        </button>
+        
+        <!-- Time Grid -->
+        <div style="position:relative;margin-top:10px;">
+            ${Array.from({ length: 18 }, (_, i) => i + 6).map(h => `
+                <div style="display:flex;align-items:center;height:60px;border-top:1px solid rgba(255,255,255,0.03);">
+                    <div style="width:50px;font-size:10px;color:var(--muted);font-family:var(--font-d);">${String(h).padStart(2, '0')}:00</div>
+                    <div style="flex:1;"></div>
+                </div>
+            `).join('')}
+            
+            <!-- NOW Line -->
+            <div id="now-line" style="position:absolute;left:0;right:0;height:1px;background:var(--orange);z-index:5;pointer-events:none;display:flex;align-items:center;">
+                <div style="background:var(--orange);color:#fff;font-size:8px;padding:2px 4px;border-radius:2px;font-family:var(--font-d);margin-left:45px;">NOW</div>
+            </div>
+            
+            <!-- Dummy Blocks -->
+            <div class="card" style="position:absolute;top:60px;left:60px;right:0;height:115px;background:rgba(0,245,255,0.1);border-left:4px solid var(--cyan);padding:10px;">
+                <div style="font-family:var(--font-t);font-weight:700;font-size:14px;">Deep Study</div>
+                <div style="font-size:11px;color:var(--muted);">Mathematics / Calculus</div>
+                <div style="position:absolute;bottom:10px;font-size:10px;color:var(--cyan);">07:00 - 09:00</div>
+            </div>
+        </div>
+    </div>
+    <button style="position:fixed;bottom:90px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--cyan);color:var(--bg1);font-size:24px;box-shadow:0 0 20px var(--glow-c);z-index:10;" onclick="toast('Add block feature coming soon')">+</button>
+    `;
+
+         updateNowLine();
+      }
+
+      function updateNowLine() {
+         const line = document.getElementById('now-line');
+         if (!line) return;
+         const now = new Date();
+         const hours = now.getHours();
+         const mins = now.getMinutes();
+         if (hours < 6 || hours > 23) {
+            line.style.display = 'none';
+            return;
+         }
+         const pixels = (hours - 6) * 60 + mins;
+         line.style.top = pixels + 'px';
+      }
+
+      async function aiBuildDay() {
+         const btn = document.querySelector('button[onclick="aiBuildDay()"]');
+         const oldText = btn.innerText;
+         btn.innerText = "⏳ CONSULTING RAGE AI...";
+         btn.disabled = true;
+
+         const profile = user || {};
+         const goalsData = goals || [];
+         const moodLabel = dailyLog.mood !== undefined ? ['😴 Low energy', '😐 Neutral', '😊 Good', '🔥 On fire', '⚡ Beast mode'][dailyLog.mood] : 'Not logged yet';
+
+         const prompt = `You are RAGE AI. Build an optimal daily timetable for ${profile.name || 'Shivam'}. 
+
+Their data:
+- Study target: ${profile.studyTarget || 4}h
+- Wake time: ${profile.wakeTime || '06:00'}
+- Sleep time: ${profile.sleepTime || '23:00'}  
+- Subjects: ${(profile.subjects || []).join(', ')}
+- Goals: ${goalsData.map(g => g.title).join(', ')}
+- Today's mood: ${moodLabel}
+
+Return ONLY a JSON array, no other text:
+[
+  {
+    "startTime": "07:00",
+    "endTime": "09:00", 
+    "type": "Deep Study",
+    "subject": "Mathematics",
+    "color": "cyan"
+  }
+]
+
+Types allowed: Deep Study, Revision, Exercise, Break, Meal, Social, Sleep
+Colors: cyan, green, purple, orange, grey`;
+
+         try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  contents: [{ parts: [{ text: prompt }] }],
+                  generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+               })
+            });
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+            const cleanJson = text.replace(/```json|```/g, '').trim();
+            const blocks = JSON.parse(cleanJson);
+
+            timetable = blocks;
+            save();
+            renderGrid();
+            confetti();
+            toast('Schedule Optimized', 'var(--green)');
+         } catch (e) {
+            console.error(e);
+            toast('AI logic failed. Check connection.', 'var(--orange)');
+         } finally {
+            btn.innerText = oldText;
+            btn.disabled = false;
+         }
+      }
+
+      /* ═══════════════════════════════════════
+         RAGE CORE (AI)
+         ═══════════════════════════════════════ */
+      function renderRageCore() {
+         const s = document.getElementById('rage-core');
+         s.innerHTML = `
+    <div style="padding:16px 20px;height:100%;display:flex;flex-direction:column;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--purple);letter-spacing:1px;">RAGE CORE</h1>
+            <span>⚙️</span>
+        </div>
+        
+        <div style="text-align:center;margin-bottom:10px;">
+            <div style="font-family:var(--font-d);font-size:10px;color:var(--cyan);letter-spacing:2px;">ONLINE</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px;">SYSTEM OPTIMAL · LEVEL 4 CLEARANCE</div>
+        </div>
+        
+        <!-- AI Orb -->
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;">
+            <div id="ai-orb" style="width:120px;height:120px;background:linear-gradient(135deg, var(--cyan), var(--purple));animation:morph 4s infinite linear;box-shadow:0 0 60px rgba(0,245,255,0.4);display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:40px;">🤖</span>
+            </div>
+            
+            <!-- Insight Pills -->
+            <div style="display:flex;gap:10px;overflow-x:auto;width:100%;padding:10px 0;scrollbar-width:none;">
+                <div class="card" style="flex-shrink:0;padding:8px 15px;border-radius:20px;display:flex;align-items:center;gap:8px;">
+                    <span style="display:block;width:6px;height:6px;background:var(--cyan);border-radius:50%;"></span>
+                    <span style="font-size:11px;white-space:nowrap;">🌙 Avg sleep: 6.5h</span>
+                </div>
+                <div class="card" style="flex-shrink:0;padding:8px 15px;border-radius:20px;display:flex;align-items:center;gap:8px;">
+                    <span style="display:block;width:6px;height:6px;background:var(--purple);border-radius:50%;"></span>
+                    <span style="font-size:11px;white-space:nowrap;">🎯 Focus Score: 86</span>
+                </div>
+                <div class="card" style="flex-shrink:0;padding:8px 15px;border-radius:20px;display:flex;align-items:center;gap:8px;">
+                    <span style="display:block;width:6px;height:6px;background:var(--orange);border-radius:50%;"></span>
+                    <span style="font-size:11px;white-space:nowrap;">🔥 Streak: 5 days</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Area -->
+        <div id="chat-messages" style="flex:1;overflow-y:auto;padding:10px 0;display:flex;flex-direction:column;gap:15px;margin-bottom:80px;">
+            <div style="display:flex;gap:10px;max-width:85%;">
+                <div style="width:30px;height:30px;border-radius:50%;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+                <div class="card" style="padding:12px;border-left:3px solid var(--purple);border-bottom-left-radius:4px;">
+                    <div style="font-size:13px;line-height:1.5;">Good evening, Cadet. Your focus metrics are dipping. Suggest re-engaging with your primary mission goal.</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Input -->
+        <div style="position:fixed;bottom:85px;left:20px;right:20px;max-width:440px;margin:0 auto;z-index:101;">
+            <div class="card" style="padding:10px;display:flex;align-items:center;gap:10px;border-radius:30px;background:rgba(10,15,30,0.95);backdrop-filter:blur(10px);">
+                <button style="background:none;font-size:20px;padding:5px;">+</button>
+                <input type="text" id="chat-input" placeholder="Talk to RAGE..." style="flex:1;border:none;background:none;padding:8px;font-size:14px;">
+                <button onclick="sendChatMessage()" style="background:none;font-size:20px;color:var(--cyan);padding:5px;">➤</button>
+            </div>
+        </div>
+    </div>
+    `;
+
+         // Auto-scroll chat
+         const chat = document.getElementById('chat-messages');
+         chat.scrollTop = chat.scrollHeight;
+      }
+
+      async function sendChatMessage() {
+         const inp = document.getElementById('chat-input');
+         const msg = inp.value.trim();
+         if (!msg) return;
+
+         const chat = document.getElementById('chat-messages');
+         chat.innerHTML += `
+    <div style="display:flex;gap:10px;max-width:85%;margin-left:auto;justify-content:flex-end;">
+        <div class="card" style="padding:12px;background:rgba(0,245,255,0.05);border-color:rgba(0,245,255,0.2);border-bottom-right-radius:4px;">
+            <div style="font-size:13px;line-height:1.5;">${msg}</div>
+        </div>
+    </div>
+    `;
+         inp.value = '';
+         chat.scrollTop = chat.scrollHeight;
+
+         // Save history
+         chatHistory.push({ role: 'user', content: msg, timestamp: Date.now() });
+         save();
+
+         // AI Thinking state
+         const orb = document.getElementById('ai-orb');
+         orb.style.animationDuration = '1s';
+         orb.style.boxShadow = '0 0 80px rgba(255,107,53,0.5)';
+
+         const reply = await callGemini(msg);
+
+         orb.style.animationDuration = '4s';
+         orb.style.boxShadow = '0 0 60px rgba(0,245,255,0.4)';
+
+         // Save response
+         chatHistory.push({ role: 'rage', content: reply, timestamp: Date.now() });
+         save();
+
+         chat.innerHTML += `
+        <div style="display:flex;gap:10px;max-width:85%;">
+            <div style="width:30px;height:30px;border-radius:50%;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+            <div class="card" style="padding:12px;border-left:3px solid var(--purple);border-bottom-left-radius:4px;">
+                <div style="font-size:13px;line-height:1.5;">${reply}</div>
+            </div>
+        </div>
+        `;
+         chat.scrollTop = chat.scrollHeight;
+      }
+
+      function renderRadar() {
+         const s = document.getElementById('life-radar');
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <div><span style="font-family:var(--font-d);font-size:12px;color:var(--cyan)">RAGE OS</span> <span class="tag tag-green" style="font-size:9px">● V.4.2.0 // ONLINE</span></div>
+            <div style="color:var(--cyan);font-family:var(--font-d);font-size:12px;">85% OPTIMAL</div>
+        </div>
+        <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);margin-bottom:4px;">LIFE RADAR</h1>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:20px;">BIOMETRIC & ACADEMIC SYNC</div>
+        
+        <!-- Radar Chart -->
+        <div style="display:flex;justify-content:center;margin-bottom:30px;">
+            <svg width="250" height="250" viewBox="0 0 250 250" style="filter:drop-shadow(0 0 10px rgba(0,245,255,0.2));">
+                <!-- Grid -->
+                ${[1, 0.8, 0.6, 0.4, 0.2].map(scale => {
+            const pts = [];
+            for (let i = 0; i < 6; i++) {
+               const r = 100 * scale;
+               const a = (Math.PI / 3) * i - Math.PI / 2;
+               pts.push(`${125 + r * Math.cos(a)},${125 + r * Math.sin(a)}`);
+            }
+            return `<polygon points="${pts.join(' ')}" fill="none" stroke="rgba(0,245,255,0.08)" stroke-width="1" />`;
+         }).join('')}
+                <!-- Axes -->
+                ${Array.from({ length: 6 }).map((_, i) => {
+            const a = (Math.PI / 3) * i - Math.PI / 2;
+            return `<line x1="125" y1="125" x2="${125 + 100 * Math.cos(a)}" y2="${125 + 100 * Math.sin(a)}" stroke="rgba(0,245,255,0.08)" stroke-width="1" />`;
+         }).join('')}
+                <!-- Data -->
+                <polygon points="125,55 190,100 180,170 125,200 70,170 60,100" fill="rgba(0,245,255,0.15)" stroke="var(--cyan)" stroke-width="2" style="animation: fadeUp 1s ease forwards;" />
+            </svg>
+        </div>
+        
+        <div style="display:flex;justify-content:space-around;margin-bottom:20px;">
+            <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
+                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">42h</div>
+                <div style="font-size:9px;color:var(--muted);">STUDY TIME</div>
+            </div>
+            <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
+                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">84</div>
+                <div style="font-size:9px;color:var(--muted);">FOCUS SCORE</div>
+            </div>
+            <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
+                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">7h</div>
+                <div style="font-size:9px;color:var(--muted);">AVG SLEEP</div>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-bottom:20px;border-left:3px solid var(--purple);overflow:visible;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-family:var(--font-t);font-weight:700;font-size:13px;">WEEKLY DEBRIEF</span>
+                <span class="tag tag-purple">AAR PROTOCOL</span>
+            </div>
+            <div id="debrief-content" style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:15px;">
+                Initialise RAGE analysis to generate your tactical After Action Report.
+            </div>
+            <button class="btn-cyan" style="font-size:10px;padding:8px;" id="debrief-btn" onclick="generateWeeklyDebrief()">GENERATE AAR</button>
+        </div>
+        
+        <div style="font-family:var(--font-t);font-weight:700;font-size:13px;margin-bottom:10px;">CONSISTENCY MATRIX</div>
+        <div class="card" style="padding:12px;">
+            <div style="display:grid;grid-template-columns:repeat(12, 1fr);gap:4px;">
+                ${Array.from({ length: 48 }).map((_, i) => `<div style="height:12px;background:${i % 7 === 0 ? 'var(--cyan)' : i % 3 === 0 ? 'rgba(0,245,255,0.4)' : 'rgba(255,255,255,0.05)'};border-radius:2px;"></div>`).join('')}
+            </div>
+        </div>
+    </div>
+    `;
+      }
+
+      function renderVault() {
+         const s = document.getElementById('the-vault');
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--cyan);letter-spacing:1px;">THE VAULT</h1>
+            <span>🔍</span>
+        </div>
+        
+        <div class="card" style="margin-bottom:20px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:11px;color:var(--muted);">STORAGE STATUS</span>
+                <span class="tag tag-green">ENCRYPTED</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                <span style="font-family:var(--font-d);font-size:1.8rem;color:var(--cyan);">2.4 GB</span>
+                <span style="font-size:10px;color:var(--muted);">/ 15 GB</span>
+            </div>
+            <div style="height:4px;background:var(--bg2);border-radius:4px;margin-top:10px;overflow:hidden;">
+                <div style="width:16%;height:100%;background:var(--cyan);"></div>
+            </div>
+        </div>
+        
+        <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:12px;">SUBJECT_DIRECTORIES</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+            ${['Mathematics', 'Physics', 'CompSci', 'History'].map(sub => `
+                <div class="card" style="padding:15px;display:flex;flex-direction:column;gap:8px;">
+                    <div style="font-size:24px;">📁</div>
+                    <div style="font-family:var(--font-t);font-weight:700;font-size:13px;">${sub}</div>
+                    <div style="font-size:9px;color:var(--muted);">12 FILES</div>
+                </div>
+            `).join('')}
+        </div>
+        
+        <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:12px;">RECENT_LOGS</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;">
+                <span style="font-size:20px;">📄</span>
+                <div style="flex:1;">
+                    <div style="font-size:13px;font-family:var(--font-t);font-weight:600;">Thesis_Draft_v4.docx</div>
+                    <div style="font-size:10px;color:var(--muted);">TODAY, 14:20 • 1.2 MB</div>
+                </div>
+                <span>⋮</span>
+            </div>
+            <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;">
+                <span style="font-size:20px;">📑</span>
+                <div style="flex:1;">
+                    <div style="font-size:13px;font-family:var(--font-t);font-weight:600;">Physics_Lab_B3.pdf</div>
+                    <div style="font-size:10px;color:var(--muted);">YESTERDAY • 4.5 MB</div>
+                </div>
+                <span>⋮</span>
+            </div>
+        </div>
+    </div>
+    `;
+      }
+      function renderNorthStar() {
+         const s = document.getElementById('north-star');
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">THE NORTH STAR</h1>
+            <span>🔔</span>
+        </div>
+        
+        <div style="display:flex;gap:10px;margin-bottom:20px;">
+            <div class="tag tag-cyan" style="flex:1;text-align:center;padding:8px;">ACTIVE DIRECTIVES: 04</div>
+            <div class="tag tag-orange" style="flex:1;text-align:center;padding:8px;">CRITICAL ALERTS: 01</div>
+        </div>
+        
+        <!-- Critical Mission -->
+        <div class="card" style="margin-bottom:20px;border:1px solid var(--orange);box-shadow:0 0 15px var(--glow-o);">
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                <span style="font-family:var(--font-d);font-size:10px;color:var(--orange);">⚠️ CRITICAL MISSION</span>
+                <span class="tag tag-orange">DIRECT</span>
+            </div>
+            <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);margin-bottom:4px;">CYBER-SECURITY CERT</div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:15px;">Target Acquisition: Dec 2026</div>
+            
+            <div style="height:6px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-bottom:8px;">
+                <div style="width:65%;height:100%;background:var(--orange);"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:15px;">
+                <span>65% COMPLETE</span>
+                <span>INITIATED: JAN 2026</span>
+            </div>
+            
+            <div style="background:rgba(255,107,53,0.05);padding:10px;border-radius:var(--r-sm);border-left:2px solid var(--orange);margin-bottom:15px;">
+                <div style="font-size:10px;color:var(--orange);font-weight:700;margin-bottom:4px;">RAGE ALERT</div>
+                <p style="font-size:10px;color:var(--muted);line-height:1.4;">Velocity drop detected. You are 3 days behind optimal trajectory. Engage study block immediately.</p>
+            </div>
+            
+            <button class="btn-orange" style="padding:10px;font-size:12px;" onclick="navigate('the-grid')">RESUME PROTOCOL →</button>
+        </div>
+        
+        <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:12px;">ACTIVE_DIRECTIVES</div>
+        <div class="card" style="margin-bottom:10px;">
+            <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:4px;">NEURAL LINGUISTICS</div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">Target: Mar 2027 • 22% Progress</div>
+            <div style="height:3px;background:var(--bg2);border-radius:2px;overflow:hidden;">
+                <div style="width:22%;height:100%;background:var(--cyan);"></div>
+            </div>
+        </div>
+        
+        <button class="btn-outline" style="width:100%;border-style:dashed;margin-top:10px;" onclick="toast('Goal initialization sequence locked')">+ NEW DIRECTIVE</button>
+    </div>
+    `;
+      }
+
+      function renderCommander() {
+         const s = document.getElementById('the-commander');
+         const lv = getLevel();
+         const lb = getLevelBounds();
+         const pct = lb.next > lb.cur ? Math.round(((lb.xp - lb.cur) / (lb.next - lb.cur)) * 100) : 100;
+
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">THE COMMANDER</h1>
+            <span>⚙️</span>
+        </div>
+        
+        <!-- Hero -->
+        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:30px;">
+            <div style="width:100px;height:100px;border-radius:50%;border:3px solid var(--cyan);padding:4px;margin-bottom:15px;box-shadow:0 0 20px var(--glow-c);">
+                <div style="width:100%;height:100%;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:40px;">${user?.name?.[0].toUpperCase()}</div>
+            </div>
+            <h2 style="font-family:var(--font-d);font-size:1.4rem;">${(user?.name || 'Shivam').toUpperCase()}</h2>
+            <div style="font-family:var(--font-t);font-size:13px;color:var(--cyan);letter-spacing:2px;margin-top:5px;">LEVEL ${lv.lvl} ${lv.title.toUpperCase()}</div>
+            
+            <div style="width:100%;max-width:300px;margin-top:20px;">
+                <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:6px;">
+                    <span>XP PROGRESS</span>
+                    <span>${lb.xp} / ${lb.next}</span>
+                </div>
+                <div style="height:6px;background:var(--bg2);border-radius:4px;overflow:hidden;">
+                    <div style="width:${pct}%;height:100%;background:linear-gradient(90deg, var(--cyan), var(--purple));"></div>
+                </div>
+                <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:6px;">${lb.next - lb.xp} XP TO LEVEL ${lv.lvl + 1}</div>
+            </div>
+        </div>
+        
+        <!-- Stats Grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:30px;">
+            <div class="card" style="padding:15px;">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">STUDY HOURS</div>
+                <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">124.5 <span style="font-size:10px;color:var(--green);">+12%</span></div>
+            </div>
+            <div class="card" style="padding:15px;">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">DAY STREAK</div>
+                <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${user?.streak || 0} <span style="font-size:10px;color:var(--green);">+1</span></div>
+            </div>
+            <div class="card" style="padding:15px;">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">TASKS CRUSHED</div>
+                <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">87 <span style="font-size:10px;color:var(--green);">+5%</span></div>
+            </div>
+            <div class="card" style="padding:15px;">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">FOCUS SCORE</div>
+                <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">92% <span style="font-size:10px;color:var(--green);">+3%</span></div>
+            </div>
+        </div>
+        
+        <!-- Achievements -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <span style="font-family:var(--font-t);font-weight:700;font-size:14px;">ACHIEVEMENTS</span>
+            <span style="font-size:11px;color:var(--cyan);">View All</span>
+        </div>
+        <div style="display:flex;gap:15px;overflow-x:auto;padding-bottom:10px;margin-bottom:30px;scrollbar-width:none;">
+            ${['🎓', '⚡', '📖', '💎', '🔥'].map((b, i) => `
+                <div style="flex-shrink:0;width:56px;height:56px;background:var(--card);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid ${i < 3 ? 'var(--cyan)' : 'var(--border)'};box-shadow:${i < 3 ? '0 0 10px var(--glow-c)' : 'none'};opacity:${i < 3 ? 1 : 0.4};">
+                    ${b}
+                </div>
+            `).join('')}
+        </div>
+        
+        <!-- Personality -->
+        <div class="card" style="padding:20px;border-left:4px solid var(--cyan);">
+            <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:5px;">RAGE PERSONALITY REPORT</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:15px;">Analysing complete. Updating weekly.</div>
+            <div style="font-size:14px;font-family:var(--font-d);color:var(--cyan);margin-bottom:10px;">ARCHETYPE: THE FOCUSED BUILDER</div>
+            <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:15px;">You exhibit high-consistency patterns in early morning study blocks. Strategy: maintain current velocity to reach Level 8 by Sunday.</p>
+            <div style="display:flex;gap:8px;">
+                <span class="tag tag-cyan">Analytical</span>
+                <span class="tag tag-cyan">Disciplined</span>
+                <span class="tag tag-cyan">Strategist</span>
+            </div>
+        </div>
+    </div>
+    `;
+      }
+
+      async function renderNetwork() {
+         const s = document.getElementById('the-network');
+
+         // Fix 4: Fetch real posts
+         let posts = [];
+         try {
+            const { data } = await supabase.from('posts').select('*').order('created_at', { ascending: false }).limit(20);
+            posts = data || [];
+         } catch (e) { console.error(e); }
+
+         // Fix 9: Squad row will be updated by Presence
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">THE NETWORK</h1>
+            <div style="display:flex;gap:15px;"><span>🔔</span><div style="width:30px;height:30px;border-radius:50%;background:var(--card);border:1px solid var(--border);"></div></div>
+        </div>
+        
+        <!-- Fix 7: Stories Row -->
+        <div id="stories-row" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:15px;margin-bottom:10px;scrollbar-width:none;">
+           <div style="width:60px;flex-shrink:0;text-align:center;" onclick="showStoryModal()">
+               <div style="width:56px;height:56px;border-radius:50%;border:2px dashed var(--muted);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:4px;">+</div>
+               <div style="font-size:9px;color:var(--muted);">YOUR STORY</div>
+           </div>
+        </div>
+
+        <!-- Squad Status (Fix 9) -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <span style="font-family:var(--font-t);font-weight:700;font-size:14px;">SQUAD STATUS</span>
+            <span class="tag tag-cyan" style="font-size:9px">SQUAD_SYNC_ON</span>
+        </div>
+        <div id="squad-row" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:15px;margin-bottom:20px;scrollbar-width:none;">
+           <div style="color:var(--muted);font-size:11px;">Syncing cadets...</div>
+        </div>
+        
+        <!-- Fix 4: Social Feed (Arena) -->
+        <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:15px;">THE ARENA</div>
+        <div id="arena-feed" style="display:flex;flex-direction:column;gap:15px;">
+            ${posts.length ? posts.map(p => `
+                <div class="card" style="padding:15px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                        <div style="width:36px;height:36px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;">${p.user_avatar || '👤'}</div>
+                        <div style="flex:1;">
+                            <div style="font-size:13px;font-family:var(--font-t);font-weight:700;">@${p.user_name} <span class="tag tag-cyan" style="font-size:8px;padding:2px 6px;">LVL ${p.user_level}</span></div>
+                            <div style="font-size:10px;color:var(--muted);">${new Date(p.created_at).toLocaleTimeString()}</div>
+                        </div>
+                        <button class="btn-outline" style="width:auto;padding:4px 10px;font-size:9px;border-radius:15px;" onclick="toggleFollow('${p.user_id}')">FOLLOW</button>
+                    </div>
+                    <div style="font-size:13px;line-height:1.5;margin-bottom:15px;">${p.content}</div>
+                    <div style="display:flex;gap:15px;">
+                        <span style="font-size:15px;cursor:pointer;" onclick="reactToPost('${p.id}', '🔥')">🔥 ${p.reactions?.fire || 0}</span>
+                        <span style="font-size:15px;cursor:pointer;" onclick="reactToPost('${p.id}', '⚡')">⚡ ${p.reactions?.zap || 0}</span>
+                        <span style="font-size:15px;cursor:pointer;" onclick="toast('Reply coming soon...')">💭</span>
+                    </div>
+                </div>
+            `).join('') : '<div class="card" style="text-align:center;color:var(--muted);padding:20px;">Arena is quiet. Be the first to broadcast.</div>'}
+        </div>
+
+        <!-- Fix 12: Accountability Pacts -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:30px;margin-bottom:15px;">
+            <span style="font-family:var(--font-t);font-weight:700;font-size:14px;">ACCOUNTABILITY PACTS</span>
+            <button class="tag tag-purple" onclick="showPactModal()">+ CREATE PACT</button>
+        </div>
+        <div id="pacts-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:30px;">
+            <div class="card" style="padding:15px;border-left:3px solid var(--purple);background:linear-gradient(90deg, rgba(124,58,237,0.05), transparent);">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">ACTIVE PACT: DISCIPLINE_SYNC</div>
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                    <div style="width:32px;height:32px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:14px;border:1px solid var(--purple);">👤</div>
+                    <div style="font-size:18px;color:var(--purple);">🤝</div>
+                    <div style="width:32px;height:32px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:14px;border:1px solid var(--purple);">👤</div>
+                    <div style="flex:1;text-align:right;">
+                        <div style="font-family:var(--font-d);font-size:18px;color:var(--text);">ACTIVE</div>
+                    </div>
+                </div>
+                <button class="btn-outline" style="font-size:10px;padding:8px;" onclick="toast('Check-in protocol active.')">DAILY CHECK-IN</button>
+            </div>
+        </div>
+    </div>
+    <button style="position:fixed;bottom:90px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--cyan);color:var(--bg1);font-size:24px;box-shadow:0 0 20px var(--glow-c);z-index:10;display:flex;align-items:center;justify-content:center;" onclick="showPostModal()">+</button>
+    `;
+         initPresence();
+      }
+      async function renderComms() {
+         const s = document.getElementById('comms-screen');
+
+         // Fix 3: Fetch real contacts from Supabase
+         let contacts = [];
+         try {
+            const { data } = await supabase.from('users_public').select('*').neq('id', user?.id).limit(10);
+            contacts = data || [];
+         } catch (e) { console.error(e); }
+
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">COMMS</h1>
+            <span>🔍</span>
+        </div>
+        
+        <div style="display:flex;flex-direction:column;gap:12px;">
+            ${contacts.length ? contacts.map(c => `
+                <div class="card" style="padding:15px;display:flex;align-items:center;gap:15px;cursor:pointer;" onclick="openDirectChat('${c.id}', '${c.name}', '${c.avatar || '👤'}')">
+                    <div style="width:44px;height:44px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;">
+                        ${c.avatar || '👤'}
+                        <div id="status-${c.id}" style="position:absolute;top:0;right:0;width:12px;height:12px;background:grey;border-radius:50%;border:2px solid var(--card);"></div>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                            <span style="font-family:var(--font-t);font-weight:700;font-size:14px;">${c.name}</span>
+                            <span class="tag tag-cyan" style="font-size:8px">LVL ${c.level || 1}</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">Tap to initiate transmission...</div>
+                    </div>
+                </div>
+            `).join('') : '<div class="card" style="text-align:center;color:var(--muted);padding:20px;">No other cadets found on the frequency.</div>'}
+        </div>
+    </div>
+    <div style="position:fixed;bottom:90px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--cyan);color:var(--bg1);font-size:24px;box-shadow:0 0 20px var(--glow-c);z-index:10;display:flex;align-items:center;justify-content:center;" onclick="toast('Direct discovery active...')">➕</div>
+    `;
+      }
+
+      function renderNotifications() {
+         const s = document.getElementById('notifications-screen');
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">NOTIFICATIONS</h1>
+            <span style="font-size:11px;color:var(--cyan);" onclick="toast('All cleared.')">Mark All Read</span>
+        </div>
+        
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            ${[
+               { icon: '🔥', title: 'Streak Milestone', text: 'You’ve reached a 14-day streak!', time: '2h ago', color: 'var(--orange)' },
+               { icon: '🎯', title: 'Goal Alert', text: 'Cyber-Security Cert deadline in 3 days.', time: '5h ago', color: 'var(--cyan)' },
+               { icon: '👤', title: 'New Follower', text: '@marcus_dev is now following you.', time: '1d ago', color: 'var(--purple)' },
+               { icon: '🏆', title: 'Achievement Unlocked', text: 'Night Owl Badge earned.', time: '2d ago', color: 'var(--green)' }
+            ].map(n => `
+                <div class="card" style="padding:15px;display:flex;gap:15px;border-left:3px solid ${n.color};">
+                    <div style="font-size:20px;">${n.icon}</div>
+                    <div style="flex:1;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                            <span style="font-family:var(--font-t);font-weight:700;font-size:13px;">${n.title}</span>
+                            <span style="font-size:9px;color:var(--muted);">${n.time}</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--muted);line-height:1.4;">${n.text}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+    `;
+      }
+
+      function renderChallenges() {
+         const s = document.getElementById('challenges-screen');
+         s.innerHTML = `
+    <div style="padding:16px 20px;" class="stagger">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">CHALLENGES</h1>
+            <span>🏆</span>
+        </div>
+        
+        <div class="card" style="padding:20px;margin-bottom:20px;background:linear-gradient(135deg, rgba(0,245,255,0.1), rgba(124,58,237,0.1));">
+            <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:8px;">COMMUNITY_CHALLENGE</div>
+            <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);margin-bottom:10px;">30 DAY RAGE STREAK</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:20px;">Join 45 other cadets in a 30-day focus marathon.</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:11px;color:var(--text);">Current: Day 12</div>
+                <button class="btn-cyan" style="width:auto;padding:8px 20px;" onclick="toast('Challenge Accepted!')">ENGAGE</button>
+            </div>
+        </div>
+        
+        <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:15px;">ACTIVE_CHALLENGES</div>
+        <div class="card" style="padding:15px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                <span style="font-size:13px;font-family:var(--font-t);font-weight:700;">Deep Work Sprint</span>
+                <span class="tag tag-green">ON TRACK</span>
+            </div>
+            <div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden;margin-bottom:10px;">
+                <div style="width:75%;height:100%;background:var(--green);"></div>
+            </div>
+            <div style="font-size:9px;color:var(--muted);text-align:right;">15 / 20 DAYS COMPLETE</div>
+        </div>
+        
+        <button class="btn-outline" style="width:100%;border-style:dashed;margin-top:10px;" onclick="toast('Initiating challenge protocols...')">LAUNCH NEW CHALLENGE</button>
+    </div>
+    `;
+      }
+      /* ═══════════════════════════════════════
+      LIFE CYCLE & IDLE DETECTION
+      ═══════════════════════════════════════ */
+      let idleTime = 0;
+      setInterval(() => {
+         if (currentScreen === 'boot-screen' || currentScreen === 'login-screen' || currentScreen === 'signup-screen' || currentScreen === 'onboarding-screen') return;
+         idleTime++;
+         if (idleTime === 60) {
+            document.body.style.boxShadow = 'inset 0 0 100px rgba(255,107,53,0.2)';
+            toast('IDLE DETECTED. RE-ENGAGE IMMEDIATELY.', 'var(--orange)');
+            if (currentScreen === 'war-room') renderWarRoom(true); // Special idle view
+         }
+      }, 1000);
+
+      document.onmousemove = document.onkeypress = document.ontouchstart = () => {
+         if (idleTime >= 60) {
+            document.body.style.boxShadow = 'none';
+            if (currentScreen === 'war-room') renderWarRoom();
+         }
+         idleTime = 0;
+      };
+
+      // Override renderWarRoom to handle idle state
+      const originalRenderWarRoom = renderWarRoom;
+      renderWarRoom = function (isIdle = false) {
+         if (!isIdle) {
+            originalRenderWarRoom();
+            return;
+         }
+
+         const s = document.getElementById('war-room');
+         const battery = getBattery();
+         const lv = getLevel();
+
+         s.innerHTML = `
+    <div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;" class="stagger">
+        <div style="font-family:var(--font-d);font-size:12px;color:var(--orange);letter-spacing:4px;margin-bottom:20px;">STATUS: IDLE DETECTED</div>
+        <div style="font-size:14px;color:var(--muted);max-width:300px;margin-bottom:40px;line-height:1.6;">Cadet, your activity levels have dropped. Re-engage immediately to maintain streak.</div>
+        
+        <div style="display:flex;gap:15px;width:100%;margin-bottom:40px;">
+            <div class="card" style="flex:1;padding:20px;border-color:var(--orange);">
+                <div style="font-family:var(--font-d);font-size:1.2rem;">LVL ${lv.lvl}</div>
+                <div style="font-size:9px;color:var(--muted);">${lv.lvl >= 11 ? 'CADET RANK' : 'CADET'}</div>
+            </div>
+            <div class="card" style="flex:1;padding:20px;border-color:var(--orange);">
+                <div style="font-family:var(--font-d);font-size:1.2rem;">${battery}%</div>
+                <div style="font-size:9px;color:var(--muted);">BATTERY</div>
+            </div>
+        </div>
+        
+        <div style="width:100%;text-align:left;margin-bottom:40px;">
+            <div style="font-family:var(--font-t);font-weight:700;font-size:13px;margin-bottom:15px;">RECOVER STATUS</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:13px;">Study Modules</span>
+                    <span class="tag tag-orange">3 assignments due</span>
+                </div>
+                <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:13px;">Squad Comms</span>
+                    <span class="tag tag-cyan">10 new messages</span>
+                </div>
+            </div>
+        </div>
+        
+        <button class="btn-orange" style="box-shadow:0 0 30px var(--glow-o);" onclick="idleTime=0;document.body.style.boxShadow='none';renderWarRoom();">ENGAGE</button>
+    </div>
+    `;
+      };
+
+      /* ═══════════════════════════════════════
+      SOCIAL & REAL-TIME LOGIC
+      ═══════════════════════════════════════ */
+      let currentDirectUser = null;
+      let presenceChannel = null;
+
+      async function openDirectChat(targetId, targetName, targetAvatar) {
+         currentDirectUser = { id: targetId, name: targetName, avatar: targetAvatar };
+         const s = document.getElementById('comms-screen');
+
+         let history = [];
+         try {
+            const { data } = await supabase.from('messages')
+               .select('*')
+               .or(`and(sender_id.eq.${user.id},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${user.id})`)
+               .order('created_at', { ascending: true });
+            history = data || [];
+         } catch (e) { console.error(e); }
+
+         s.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;">
+        <div style="padding:15px;display:flex;align-items:center;gap:15px;border-bottom:1px solid var(--border);background:var(--card);">
+            <button onclick="renderComms()" style="background:none;color:var(--cyan);font-size:20px;">←</button>
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;">${targetAvatar}</div>
+            <div style="flex:1;">
+                <div style="font-family:var(--font-t);font-weight:700;font-size:14px;">${targetName}</div>
+                <div id="typing-indicator" style="font-size:9px;color:var(--green);display:none;">typing...</div>
+            </div>
+        </div>
+        
+        <div id="dm-messages" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
+            ${history.map(m => `
+                <div style="max-width:80%; ${m.sender_id === user.id ? 'margin-left:auto;text-align:right;' : ''}">
+                    <div class="card" style="padding:10px; ${m.sender_id === user.id ? 'background:rgba(0,245,255,0.05);border-color:var(--cyan);' : 'border-color:var(--purple);'}">
+                        <div style="font-size:12px;line-height:1.4;">${m.content}</div>
+                    </div>
+                    <div style="font-size:8px;color:var(--muted);margin-top:4px;">
+                        ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        ${m.sender_id === user.id ? (m.read ? '<span style="color:var(--cyan)">✓✓</span>' : '✓') : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+        
+        <div style="padding:15px;border-top:1px solid var(--border);display:flex;gap:10px;background:var(--bg2);">
+            <input type="text" id="dm-input" placeholder="Secure link active..." style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:8px 15px;color:var(--text);font-size:13px;" oninput="handleTyping()">
+            <button onclick="sendDirectMessage()" style="background:var(--cyan);color:var(--bg1);border:none;border-radius:50%;width:35px;height:35px;display:flex;align-items:center;justify-content:center;font-size:16px;">➤</button>
+        </div>
+    </div>
+    `;
+         const chat = document.getElementById('dm-messages');
+         if (chat) chat.scrollTop = chat.scrollHeight;
+
+         supabase.channel(`convo-${targetId}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+               if (payload.new.sender_id === targetId || payload.new.sender_id === user.id) {
+                  appendDM(payload.new);
+               }
+            }).subscribe();
+      }
+
+      function handleTyping() { }
+
+      async function sendDirectMessage() {
+         const inp = document.getElementById('dm-input');
+         const content = inp.value.trim();
+         if (!content || !currentDirectUser) return;
+         try {
+            await supabase.from('messages').insert({ sender_id: user.id, receiver_id: currentDirectUser.id, content: content });
+            inp.value = '';
+         } catch (e) { toast('Error sending message', 'var(--orange)'); }
+      }
+
+      function appendDM(m) {
+         const chat = document.getElementById('dm-messages');
+         if (!chat) return;
+         const isMe = m.sender_id === user.id;
+         chat.innerHTML += `
+            <div style="max-width:80%; ${isMe ? 'margin-left:auto;text-align:right;' : ''}">
+                <div class="card" style="padding:10px; ${isMe ? 'background:rgba(0,245,255,0.05);border-color:var(--cyan);' : 'border-color:var(--purple);'}">
+                    <div style="font-size:12px;line-height:1.4;">${m.content}</div>
+                </div>
+                <div style="font-size:8px;color:var(--muted);margin-top:4px;">
+                    ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+            </div>`;
+         chat.scrollTop = chat.scrollHeight;
+      }
+
+      function showPostModal() {
+         const modal = document.createElement('div');
+         modal.id = 'post-modal';
+         modal.className = 'screen active';
+         modal.style.background = 'rgba(6,9,16,0.98)';
+         modal.style.zIndex = '1000';
+         modal.innerHTML = `
+            <div style="padding:24px;" class="stagger">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
+                    <h2 style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);">ARENA BROADCAST</h2>
+                    <button onclick="document.getElementById('post-modal').remove()" style="background:none;color:var(--muted);font-size:24px;">×</button>
+                </div>
+                <textarea id="post-text" placeholder="What is your current RAGE status, Cadet?" style="width:100%;height:150px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:15px;color:var(--text);font-family:var(--font-t);font-size:14px;margin-bottom:20px;resize:none;"></textarea>
+                <div style="display:flex;gap:10px;margin-bottom:20px;overflow-x:auto;">
+                    <button class="tag tag-cyan" onclick="this.parentElement.dataset.type='FLEX'">FLEX</button>
+                    <button class="tag tag-purple" onclick="this.parentElement.dataset.type='GOAL'">GOAL</button>
+                    <button class="tag tag-orange" onclick="this.parentElement.dataset.type='STREAK'">STREAK</button>
+                    <button class="tag tag-green" onclick="this.parentElement.dataset.type='THOUGHT'">THOUGHT</button>
+                </div>
+                <button class="btn-cyan" onclick="createPost()">DROP IT</button>
+            </div>`;
+         document.body.appendChild(modal);
+      }
+
+      async function createPost() {
+         const text = document.getElementById('post-text').value.trim();
+         if (!text) return;
+         const type = document.querySelector('#post-modal div[data-type]')?.dataset.type || 'THOUGHT';
+         const lv = getLevel();
+         try {
+            await supabase.from('posts').insert({
+               user_id: user.id, user_name: user.username || user.name, user_level: lv.lvl,
+               user_avatar: user.avatar || '👤', content: text, type: type, reactions: { fire: 0, zap: 0 }
+            });
+            document.getElementById('post-modal').remove();
+            toast('Broadcast live.', 'var(--green)');
+            renderNetwork();
+         } catch (e) { toast('Transmission failed.', 'var(--orange)'); }
+      }
+
+      async function reactToPost(postId, emoji) { toast('Reacted with ' + emoji); confetti(); }
+
+      function initPresence() {
+         if (presenceChannel) return;
+         presenceChannel = supabase.channel('online-users');
+         presenceChannel.on('presence', { event: 'sync' }, () => {
+            const state = presenceChannel.presenceState();
+            updateOnlineUI(state);
+         }).subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+               await presenceChannel.track({
+                  id: user.id, name: user.name, level: user.level, avatar: user.avatar || '👤',
+                  online_at: new Date().toISOString()
+               });
+            }
+         });
+      }
+
+      function updateOnlineUI(state) {
+         const squadRow = document.getElementById('squad-row');
+         if (!squadRow) return;
+         const users = Object.values(state).flat();
+         squadRow.innerHTML = users.map(u => `
+            <div style="width:50px;height:50px;border-radius:50%;border:2px solid var(--green);padding:2px;flex-shrink:0;">
+                <div style="width:100%;height:100%;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;">${u.avatar || '👤'}</div>
+            </div>`).join('') || '<div style="color:var(--muted);font-size:11px;">No other cadets active.</div>';
+      }
+
+      // Fix 7: Stories
+      async function showStoryModal() {
+         const modal = document.createElement('div');
+         modal.id = 'story-modal';
+         modal.className = 'screen active';
+         modal.style.background = 'rgba(0,0,0,0.95)';
+         modal.style.zIndex = '3000';
+
+         const { data: stories } = await supabase.from('stories').select('*').gt('created_at', new Date(Date.now() - 86400000).toISOString());
+         const myStory = stories?.find(s => s.user_id === user.id);
+
+         modal.innerHTML = `
+            <div style="padding:24px;height:100%;display:flex;flex-direction:column;" class="stagger">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
+                    <h2 style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);">SQUAD STORIES</h2>
+                    <button onclick="document.getElementById('story-modal').remove()" style="background:none;color:var(--muted);font-size:24px;">×</button>
+                </div>
+                
+                ${myStory ? `
+                    <div class="card" style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px;border-color:var(--cyan);">
+                        <div style="font-size:10px;color:var(--cyan);letter-spacing:2px;margin-bottom:20px;">YOUR ACTIVE STORY</div>
+                        <div style="font-size:18px;line-height:1.6;">${myStory.content}</div>
+                        <div style="font-size:10px;color:var(--muted);margin-top:40px;">Expires in ${Math.round((new Date(myStory.created_at).getTime() + 86400000 - Date.now()) / 3600000)}h</div>
+                    </div>
+                ` : `
+                    <div class="card" style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:30px;">
+                        <textarea id="story-content" placeholder="Share a fleeting thought with the squad..." style="width:100%;height:150px;background:none;border:none;color:var(--text);font-family:var(--font-t);font-size:18px;text-align:center;resize:none;outline:none;"></textarea>
+                        <button class="btn-cyan" onclick="createStory()" style="margin-top:30px;">BROADCAST STORY</button>
+                    </div>
+                `}
+                
+                <div style="margin-top:30px;">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:15px;letter-spacing:1px;">OTHERS</div>
+                    <div style="display:flex;gap:15px;overflow-x:auto;padding-bottom:10px;">
+                        ${stories?.filter(s => s.user_id !== user.id).map(s => `
+                            <div style="flex-shrink:0;width:60px;text-align:center;">
+                                <div style="width:56px;height:56px;border-radius:50%;border:2px solid var(--purple);padding:2px;margin-bottom:4px;">
+                                    <div style="width:100%;height:100%;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:20px;">👤</div>
+                                </div>
+                                <div style="font-size:9px;color:var(--muted);text-transform:uppercase;">${s.user_name}</div>
+                            </div>
+                        `).join('') || '<div style="font-size:11px;color:var(--muted);">Quiet in the sectors...</div>'}
+                    </div>
+                </div>
+            </div>`;
+         document.body.appendChild(modal);
+      }
+
+      async function createStory() {
+         const content = document.getElementById('story-content').value.trim();
+         if (!content) return;
+         try {
+            await supabase.from('stories').insert({
+               user_id: user.id,
+               user_name: user.username || user.name,
+               content: content
+            });
+            toast('Story live for 24h.', 'var(--green)');
+            document.getElementById('story-modal').remove();
+            renderNetwork();
+         } catch (e) { toast('Story failed.', 'var(--orange)'); }
+      }
+
+      // Fix 8: Follow System
+      async function toggleFollow(targetId) {
+         if (!user?.id) return;
+         try {
+            const { data: existing } = await supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', targetId).single();
+            if (existing) {
+               await supabase.from('follows').delete().eq('id', existing.id);
+               toast('Protocol: Unfollowed Cadet.');
+            } else {
+               await supabase.from('follows').insert({ follower_id: user.id, following_id: targetId });
+               toast('Protocol: Following Cadet.', 'var(--green)');
+            }
+            renderNetwork();
+         } catch (e) { toast('Comms error.', 'var(--orange)'); }
+      }
+
+      // Fix 10: Weekly Debrief
+      async function generateWeeklyDebrief() {
+         const btn = document.getElementById('debrief-btn');
+         const content = document.getElementById('debrief-content');
+         if (!btn || !content) return;
+
+         btn.disabled = true;
+         btn.innerText = 'ANALYSING...';
+         content.innerHTML = '<div class="scanline"></div>Compiling mission data...';
+
+         const completedTasks = tasks.filter(t => t.completed).length;
+         const totalTasks = tasks.length;
+         const stats = {
+            name: user.name,
+            level: user.level,
+            xp: user.xp,
+            streak: user.streak,
+            completedTasks,
+            totalTasks,
+            habits: habits.length
+         };
+
+         const prompt = `Act as the RAGE OS Commander. Perform a tactical After Action Report (AAR) for cadet ${stats.name}.
+         Stats: Level ${stats.level}, XP ${stats.xp}, Streak ${stats.streak}, Tasks ${stats.completedTasks}/${stats.totalTasks}, Active Habits: ${stats.habits}.
+         Provide a 3-sentence high-intensity, futuristic debrief. Use military terminology (e.g., velocity, sector, mission-critical, cadence).
+         Be aggressive but motivational.`;
+
+         try {
+            const aar = await callGemini(prompt);
+            content.style.whiteSpace = 'pre-wrap';
+            content.innerText = '';
+
+            // Typing effect
+            let i = 0;
+            const type = () => {
+               if (i < aar.length) {
+                  content.innerText += aar[i++];
+                  setTimeout(type, 20);
+               } else {
+                  btn.innerText = 'SHARE TO ARENA';
+                  btn.disabled = false;
+                  btn.onclick = () => shareDebriefToArena(aar);
+               }
+            };
+            type();
+         } catch (e) {
+            content.innerText = 'Error: Link to Rage Core severed. Retrying...';
+            btn.disabled = false;
+            btn.innerText = 'RETRY GENERATION';
+         }
+      }
+
+      async function shareDebriefToArena(text) {
+         try {
+            const lv = getLevel();
+            await supabase.from('posts').insert({
+               user_id: user.id,
+               user_name: user.username || user.name,
+               user_level: lv.lvl,
+               user_avatar: user.avatar || '👤',
+               content: `📊 WEEKLY DEBRIEF / AAR:\n\n${text}`,
+               type: 'AAR',
+               reactions: { fire: 0, zap: 0 }
+            });
+            toast('AAR Broadcast to Arena.', 'var(--green)');
+            renderRadar(); // Reset state
+         } catch (e) { toast('Broadcast failed.', 'var(--orange)'); }
+      }
+
+      // Fix 11: Study Timer
+      let studyInterval = null;
+      let studySeconds = 0;
+      let studyActive = false;
+
+      function showStudyTimer() {
+         const modal = document.createElement('div');
+         modal.id = 'timer-modal';
+         modal.className = 'screen active';
+         modal.style.background = 'var(--bg1)';
+         modal.style.zIndex = '2000';
+         modal.innerHTML = `
+            <div style="padding:24px;display:flex;flex-direction:column;align-items:center;height:100%;" class="stagger">
+                <div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:60px;">
+                    <h2 style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);">FOCUS PROTOCOL</h2>
+                    <button onclick="closeStudyTimer()" style="background:none;color:var(--muted);font-size:24px;">×</button>
+                </div>
+                
+                <div style="width:280px;height:280px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:60px;box-shadow:inset 0 0 50px rgba(0,245,255,0.05);">
+                    <div id="timer-display" style="font-family:var(--font-d);font-size:4rem;color:var(--text);letter-spacing:4px;">25:00</div>
+                    <svg style="position:absolute;top:-5;left:-5;width:290px;height:290px;transform:rotate(-90deg);">
+                        <circle cx="145" cy="145" r="140" fill="none" stroke="var(--cyan)" stroke-width="4" stroke-dasharray="880" stroke-dashoffset="0" id="timer-progress" style="transition:stroke-dashoffset 1s linear;"></circle>
+                    </svg>
+                </div>
+                
+                <div style="display:flex;gap:15px;margin-bottom:40px;">
+                    <button class="tag" style="padding:10px 20px;" onclick="setTimerDuration(1500)">25M</button>
+                    <button class="tag" style="padding:10px 20px;" onclick="setTimerDuration(3000)">50M</button>
+                    <button class="tag" style="padding:10px 20px;" onclick="setTimerDuration(600)">10M</button>
+                </div>
+                
+                <div style="display:flex;gap:20px;width:100%;">
+                    <button id="study-start-btn" class="btn-cyan" style="flex:2;" onclick="toggleStudyTimer()">START</button>
+                    <button class="btn-outline" style="flex:1;" onclick="resetStudyTimer()">RESET</button>
+                </div>
+            </div>`;
+         document.body.appendChild(modal);
+      }
+
+      function setTimerDuration(sec) {
+         studySeconds = sec;
+         updateTimerDisplay();
+      }
+
+      function updateTimerDisplay() {
+         const m = Math.floor(studySeconds / 60);
+         const s = studySeconds % 60;
+         const d = document.getElementById('timer-display');
+         if (d) d.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+         const progress = document.getElementById('timer-progress');
+         if (progress) {
+            // total logic - we need a totalSeconds ref
+         }
+      }
+
+      function toggleStudyTimer() {
+         const btn = document.getElementById('study-start-btn');
+         if (studyActive) {
+            clearInterval(studyInterval);
+            studyActive = false;
+            btn.innerText = 'RESUME';
+         } else {
+            if (studySeconds <= 0) studySeconds = 1500;
+            studyActive = true;
+            btn.innerText = 'PAUSE';
+            studyInterval = setInterval(() => {
+               studySeconds--;
+               updateTimerDisplay();
+               if (studySeconds <= 0) {
+                  clearInterval(studyInterval);
+                  finishStudySession();
+               }
+            }, 1000);
+         }
+      }
+
+      function resetStudyTimer() {
+         clearInterval(studyInterval);
+         studyActive = false;
+         studySeconds = 1500;
+         updateTimerDisplay();
+         const btn = document.getElementById('study-start-btn');
+         if (btn) btn.innerText = 'START';
+      }
+
+      function finishStudySession() {
+         toast('MISSION SUCCESS. RADAR UPDATED.', 'var(--green)');
+         confetti();
+         addXP(50);
+         closeStudyTimer();
+      }
+
+      function closeStudyTimer() {
+         clearInterval(studyInterval);
+         studyActive = false;
+         const m = document.getElementById('timer-modal');
+         if (m) m.remove();
+      }
+
+      // Fix 12: Accountability Pacts
+      function showPactModal() {
+         const modal = document.createElement('div');
+         modal.id = 'pact-modal';
+         modal.className = 'screen active';
+         modal.style.background = 'var(--bg1)';
+         modal.style.zIndex = '3000';
+         modal.innerHTML = `
+            <div style="padding:24px;" class="stagger">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
+                    <h2 style="font-family:var(--font-d);font-size:1.2rem;color:var(--purple);">CREATE PACT</h2>
+                    <button onclick="document.getElementById('pact-modal').remove()" style="background:none;color:var(--muted);font-size:24px;">×</button>
+                </div>
+                
+                <div class="card" style="padding:20px;margin-bottom:20px;">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">SELECT SQUAD MATE</div>
+                    <select id="pact-target" style="width:100%;margin-bottom:20px;background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;">
+                        <option value="">Scanning for active cadets...</option>
+                    </select>
+                    
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">THE PACT GOAL</div>
+                    <input type="text" id="pact-goal" placeholder="e.g., No Sugar, 5AM Wakeup, 4h Study" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;margin-bottom:20px;">
+                    
+                    <div style="background:rgba(124,58,237,0.1);padding:15px;border-radius:8px;border-left:3px solid var(--purple);margin-bottom:20px;">
+                        <div style="font-size:11px;color:var(--purple);font-weight:700;margin-bottom:5px;">THE CONSEQUENCE</div>
+                        <p style="font-size:10px;color:var(--muted);line-height:1.4;">If either party fails to check in, the shared streak will reset to zero. Total XP penalty: -50.</p>
+                    </div>
+                    
+                    <button class="btn-cyan" style="background:var(--purple);box-shadow:0 0 20px rgba(124,58,237,0.3);" onclick="createPact()">INITIATE PACT</button>
+                </div>
+            </div>`;
+         document.body.appendChild(modal);
+
+         // Fetch contacts for the dropdown
+         supabase.from('users_public').select('*').neq('id', user.id).limit(20)
+            .then(({ data }) => {
+               const sel = document.getElementById('pact-target');
+               if (sel && data) {
+                  sel.innerHTML = data.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+               }
+            });
+      }
+
+      async function createPact() {
+         const targetId = document.getElementById('pact-target').value;
+         const goal = document.getElementById('pact-goal').value.trim();
+         if (!targetId || !goal) return toast('Target and Goal required.', 'var(--orange)');
+
+         try {
+            await supabase.from('pacts').insert({
+               user1_id: user.id,
+               user2_id: targetId,
+               goal: goal,
+               streak: 0,
+               last_checkin_user1: new Date().toISOString()
+            });
+            toast('Pact Initiated. Awaiting synchronization.', 'var(--purple)');
+            document.getElementById('pact-modal').remove();
+            renderNetwork();
+         } catch (e) { toast('Transmission failed.', 'var(--orange)'); }
+      }
+
+      // Initial setup
+      window.onload = () => {
+         if (user && user.name) {
+            // Logged in
+         } else {
+            showScreen('boot-screen');
+         }
+      };
+   </script>
+</body>
+
+</html>
