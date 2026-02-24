@@ -980,7 +980,14 @@
       const SUPABASE_KEY = 'sb_publishable_6zZgExehxa0CNiIgSIdqUg_x4OPCmMA';
       const GEMINI_KEY = 'AIzaSyC0I5RH7oJQsyX6dG5Vk-aTLJYn54X6Iok';
 
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      let supabase;
+      try {
+         if (window.supabase) {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+         } else {
+            console.error("Supabase CDN not ready. Retrying in background...");
+         }
+      } catch (e) { console.error("Supabase Init Error:", e); }
 
       // ─── State ───
       let currentScreen = 'boot-screen';
@@ -1005,6 +1012,10 @@
          localStorage.setItem('rage_habits', JSON.stringify(habits));
 
          // Then sync to Supabase (persistent)
+         if (!supabase && window.supabase) {
+            try { supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { }
+         }
+
          if (supabase && user?.id) {
             try {
                // Sync User Public Profile
@@ -1216,6 +1227,20 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
             }
          }, 40);
       })();
+
+      // Global Error Handler for UI notification
+      window.onerror = function (msg, url, lineNo, columnNo, error) {
+         console.error('GLOBAL ERROR:', msg, url, lineNo, error);
+         // If we're stuck on boot screen, try to force a transition to login
+         if (currentScreen === 'boot-screen') {
+            setTimeout(() => {
+               if (document.getElementById('boot-logo').style.opacity !== '1') {
+                  showScreen('login-screen');
+               }
+            }, 5000);
+         }
+         return false;
+      };
 
       /* ═══════════════════════════════════════
          AUTH
