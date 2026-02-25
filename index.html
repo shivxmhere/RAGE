@@ -818,6 +818,26 @@
          transform: scale(1.1) rotate(5deg);
          box-shadow: 0 0 30px var(--glow-c);
       }
+
+      @keyframes shimmer {
+         0% {
+            background-position: -200% 0;
+         }
+
+         100% {
+            background-position: 200% 0;
+         }
+      }
+
+      .skeleton {
+         background: linear-gradient(90deg,
+               var(--card) 25%,
+               rgba(255, 255, 255, 0.04) 50%,
+               var(--card) 75%);
+         background-size: 200% 100%;
+         animation: shimmer 1.5s infinite;
+         border-radius: var(--r-sm);
+      }
    </style>
 </head>
 
@@ -850,7 +870,7 @@
          <div class="field"><input type="password" id="login-pw" placeholder="Password"><button class="toggle-pw"
                onclick="togglePw('login-pw')">👁</button></div>
          <button class="btn-cyan" onclick="doLogin()">ENGAGE</button>
-         <button class="auth-link" onclick="alert('Check email for reset link')">FORGOT ACCESS CODES?</button>
+         <button class="auth-link" onclick="resetPassword()">FORGOT ACCESS CODES?</button>
          <div class="or-div">OR</div>
          <button class="google-btn" onclick="doGoogleLogin()">
             <svg width="18" height="18" viewBox="0 0 48 48">
@@ -973,17 +993,191 @@
    </div>
 
    <script>
+      /* ═══════════════════════════════════
+      SUPABASE SETUP SQL
+      Run this in: supabase.com → SQL Editor
+      ═══════════════════════════════════ */
+
+      /*
+      create table if not exists users_public (
+        id uuid references auth.users primary key,
+        name text, username text unique,
+        avatar_url text, level int default 1,
+        xp int default 0, streak int default 0,
+        subjects text[], bio text,
+        study_target int default 4,
+        wake_time text default '06:00',
+        sleep_time text default '23:00',
+        archetype text, online_at timestamp,
+        created_at timestamp default now()
+      );
+      create table if not exists tasks (
+        id text primary key,
+        user_id uuid references auth.users,
+        title text, priority text, date text,
+        done boolean default false, tag text,
+        xp_reward int default 10,
+        created_at timestamp default now()
+      );
+      create table if not exists goals (
+        id text primary key,
+        user_id uuid references auth.users,
+        title text, category text,
+        progress int default 0,
+        status text default 'active',
+        deadline text,
+        created_at timestamp default now()
+      );
+      create table if not exists daily_logs (
+        id uuid default gen_random_uuid()
+          primary key,
+        user_id uuid references auth.users,
+        date text, mood int,
+        study_hours float default 0,
+        workout boolean default false,
+        sleep_on_time boolean default false,
+        battery_score int default 0,
+        unique(user_id, date)
+      );
+      create table if not exists timetable_blocks (
+        id text primary key,
+        user_id uuid references auth.users,
+        day text, start_time text,
+        end_time text, type text,
+        title text, subject text,
+        color text default 'cyan'
+      );
+      create table if not exists posts (
+        id uuid default gen_random_uuid()
+          primary key,
+        user_id uuid references auth.users,
+        user_name text, user_username text,
+        user_level int default 1,
+        user_avatar text, content text,
+        type text default 'THOUGHT',
+        reactions jsonb default '{}',
+        created_at timestamp default now()
+      );
+      create table if not exists messages (
+        id uuid default gen_random_uuid()
+          primary key,
+        conversation_id text,
+        sender_id uuid references auth.users,
+        content text, read boolean default false,
+        created_at timestamp default now()
+      );
+      create table if not exists conversations (
+        id text primary key,
+        participant_1 uuid references auth.users,
+        participant_2 uuid references auth.users,
+        last_message text,
+        updated_at timestamp default now()
+      );
+      create table if not exists followers (
+        follower_id uuid references auth.users,
+        following_id uuid references auth.users,
+        created_at timestamp default now(),
+        primary key (follower_id, following_id)
+      );
+      create table if not exists stories (
+        id uuid default gen_random_uuid()
+          primary key,
+        user_id uuid references auth.users,
+        user_name text, content text,
+        type text default 'text',
+        created_at timestamp default now()
+      );
+      create table if not exists accountability_pacts (
+        id uuid default gen_random_uuid()
+          primary key,
+        user1_id uuid references auth.users,
+        user2_id uuid references auth.users,
+        user1_name text, user2_name text,
+        title text, streak int default 0,
+        last_logged date,
+        created_at timestamp default now()
+      );
+      create table if not exists achievements (
+        id uuid default gen_random_uuid()
+          primary key,
+        user_id uuid references auth.users,
+        badge_id text, badge_name text,
+        earned_at timestamp default now()
+      );
+      create table if not exists chat_history (
+        id uuid default gen_random_uuid()
+          primary key,
+        user_id uuid references auth.users,
+        role text, content text,
+        timestamp bigint,
+        created_at timestamp default now()
+      );
+
+      alter table users_public enable row level security;
+      alter table tasks enable row level security;
+      alter table goals enable row level security;
+      alter table daily_logs enable row level security;
+      alter table timetable_blocks enable row level security;
+      alter table posts enable row level security;
+      alter table messages enable row level security;
+      alter table conversations enable row level security;
+      alter table followers enable row level security;
+      alter table stories enable row level security;
+      alter table accountability_pacts enable row level security;
+      alter table achievements enable row level security;
+      alter table chat_history enable row level security;
+
+      create policy "Public read users" on users_public for select using (true);
+      create policy "Own user write" on users_public for all using (auth.uid() = id);
+      create policy "Own tasks" on tasks for all using (auth.uid() = user_id);
+      create policy "Own goals" on goals for all using (auth.uid() = user_id);
+      create policy "Own logs" on daily_logs for all using (auth.uid() = user_id);
+      create policy "Own timetable" on timetable_blocks for all using (auth.uid() = user_id);
+      create policy "Posts public read" on posts for select using (true);
+      create policy "Posts own write" on posts for insert with check (auth.uid() = user_id);
+      create policy "Messages own" on messages for all using (auth.uid() = sender_id);
+      create policy "Convos own" on conversations for all using (auth.uid() = participant_1 or auth.uid() = participant_2);
+      create policy "Followers public read" on followers for select using (true);
+      create policy "Followers own write" on followers for all using (auth.uid() = follower_id);
+      create policy "Stories public read" on stories for select using (true);
+      create policy "Stories own write" on stories for all using (auth.uid() = user_id);
+      create policy "Pacts own" on accountability_pacts for all using (auth.uid() = user1_id or auth.uid() = user2_id);
+      create policy "Achievements public" on achievements for select using (true);
+      create policy "Achievements own write" on achievements for all using (auth.uid() = user_id);
+      create policy "Chat own" on chat_history for all using (auth.uid() = user_id);
+      */
+
       /* ═══════════════════════════════════════
          RAGE OS — Core Engine
          ═══════════════════════════════════════ */
       const SUPABASE_URL = 'https://tfevioftlgnhumwducyq.supabase.co';
-      const SUPABASE_KEY = 'sb_publishable_6zZgExehxa0CNiIgSIdqUg_x4OPCmMA';
+      // GO TO: supabase.com → your project
+      // Settings → API → copy "anon public" key
+      // Paste it above replacing YOUR_SUPABASE_ANON_KEY
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRmZXZpb2Z0bGduaHVtd2R1Y3lxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NTY2OTUsImV4cCI6MjA4NzUzMjY5NX0.JN7dteqjjXQrMS2yKMrfZhHFKjf9jc7DEccQYZV7fa0';
       const GEMINI_KEY = 'AIzaSyC0I5RH7oJQsyX6dG5Vk-aTLJYn54X6Iok';
 
       let sb;
       try {
          if (window.supabase) {
             sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+            // Bug 4: Auth state listener
+            sb.auth.onAuthStateChange(async (event, session) => {
+               if (event === 'SIGNED_IN' && session) {
+                  const { data: profile } = await sb.from('users_public').select('*').eq('id', session.user.id).single();
+                  user = {
+                     ...session.user,
+                     ...(profile || {}),
+                     name: profile?.name || session.user.user_metadata?.name || session.user.email.split('@')[0]
+                  };
+                  save();
+               }
+               if (event === 'SIGNED_OUT') {
+                  user = null;
+                  localStorage.clear();
+               }
+            });
          } else {
             console.error("Supabase CDN not ready. Retrying in background...");
          }
@@ -1077,6 +1271,42 @@
          }
       }
 
+      // Bug 5 — LOAD USER DATA FUNCTION
+      async function loadUserData() {
+         if (!sb || !user?.id) return;
+         try {
+            const today = new Date().toDateString();
+            const [t, g, l] = await Promise.all([
+               sb.from('tasks').select('*').eq('user_id', user.id).gte('date', today),
+               sb.from('goals').select('*').eq('user_id', user.id).eq('status', 'active'),
+               sb.from('daily_logs').select('*').eq('user_id', user.id).eq('date', today).single()
+            ]);
+            if (t.data?.length) {
+               tasks = t.data.map(x => ({
+                  id: x.id,
+                  title: x.title,
+                  priority: x.priority,
+                  date: x.date,
+                  done: x.done,
+                  tag: x.tag || '',
+                  xpReward: x.xp_reward || 10,
+                  createdAt: x.created_at
+               }));
+               localStorage.setItem('rage_tasks', JSON.stringify(tasks));
+            }
+            if (g.data?.length) {
+               goals = g.data;
+               localStorage.setItem('rage_goals', JSON.stringify(goals));
+            }
+            if (l.data) {
+               dailyLog = l.data;
+               localStorage.setItem('rage_daily', JSON.stringify(dailyLog));
+            }
+         } catch (e) {
+            console.log('Load data error:', e);
+         }
+      }
+
       async function callGemini(userMsg) {
          const profile = JSON.parse(localStorage.getItem('rage_user') || '{}');
          const tasksData = JSON.parse(localStorage.getItem('rage_tasks') || '[]');
@@ -1144,6 +1374,7 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          document.querySelectorAll('.nav-btn').forEach(b => { b.classList.toggle('active', b.dataset.screen === id); });
       }
       function navigate(id) {
+         haptic('light');
          showScreen(id);
          if (id === 'war-room') renderWarRoom();
          if (id === 'the-grid') renderGrid();
@@ -1156,6 +1387,141 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          if (id === 'comms-screen') renderComms();
          if (id === 'notifications-screen') renderNotifications();
          if (id === 'challenges-screen') renderChallenges();
+      }
+
+      // Bug 13 — HAPTIC & SWIPE
+      function haptic(type) {
+         if (!window.navigator.vibrate) return;
+         if (type === 'light') window.navigator.vibrate(10);
+         else if (type === 'medium') window.navigator.vibrate(20);
+         else if (type === 'success') window.navigator.vibrate([20, 30, 20]);
+         else if (type === 'error') window.navigator.vibrate([50, 50, 50]);
+      }
+
+      let touchStartX = 0;
+      window.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, false);
+      window.addEventListener('touchend', e => {
+         const touchEndX = e.changedTouches[0].screenX;
+         if (touchEndX - touchStartX > 100) {
+            // Swipe right to go back
+            if (['comms-screen', 'notifications-screen', 'challenges-screen', 'the-network', 'life-radar', 'the-vault', 'north-star', 'the-commander'].includes(currentScreen)) {
+               navigate('war-room');
+            }
+         }
+      }, false);
+
+      // Add 5 — Skeleton Loader
+      function skeletonCards(count = 3) {
+         return Array(count).fill(0).map(() => `
+         <div class="card skeleton" style="padding:16px;margin-bottom:10px;">
+           <div style="height:12px;width:60%;background:rgba(255,255,255,0.05);border-radius:4px;margin-bottom:8px;"></div>
+           <div style="height:10px;width:40%;background:rgba(255,255,255,0.03);border-radius:4px;"></div>
+         </div>`).join('');
+      }
+
+      // Add 1 — User Search
+      async function searchCadets(query) {
+         const container = document.getElementById('search-results');
+         if (!container) return;
+         if (!query || query.length < 2) {
+            container.innerHTML = '';
+            return;
+         }
+         const { data } = await sb
+            .from('users_public')
+            .select('*')
+            .or(`username.ilike.%${query}%,name.ilike.%${query}%`)
+            .neq('id', user?.id || '')
+            .limit(8);
+
+         if (!data?.length) {
+            container.innerHTML = `
+            <div style="font-size:12px;color:var(--muted);text-align:center;padding:10px;">
+              No cadets found on frequency.
+            </div>`;
+            return;
+         }
+
+         container.innerHTML = data.map(u => `
+         <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+           <div style="width:40px;height:40px;border-radius:50%;background:var(--card2);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
+             ${u.name?.[0]?.toUpperCase() || '?'}
+           </div>
+           <div style="flex:1;">
+             <div style="font-family:var(--font-t);font-weight:700;font-size:14px;">${u.name}</div>
+             <div style="font-size:11px;color:var(--muted);">
+               @${u.username || 'unknown'} • LVL ${u.level || 1} • 🔥${u.streak || 0} days
+             </div>
+           </div>
+           <button id="follow-btn-${u.id}" onclick="toggleFollow('${u.id}','${u.name}',this)" class="btn-outline" style="padding:6px 12px;font-size:10px;width:auto;">
+             FOLLOW
+           </button>
+         </div>`).join('');
+
+         checkFollowStatuses(data);
+      }
+
+      async function checkFollowStatuses(users) {
+         if (!user?.id || !users?.length) return;
+         const ids = users.map(u => u.id);
+         const { data } = await sb.from('followers').select('following_id').eq('follower_id', user.id).in('following_id', ids);
+         const following = new Set(data?.map(f => f.following_id) || []);
+         users.forEach(u => {
+            const btn = document.getElementById('follow-btn-' + u.id);
+            if (btn && following.has(u.id)) {
+               btn.textContent = 'FOLLOWING';
+               btn.style.background = 'var(--cyan)';
+               btn.style.color = 'var(--bg1)';
+            }
+         });
+      }
+
+      // Add 4 — Streak System
+      async function updateStreak() {
+         if (!user?.id) return;
+         const today = new Date().toISOString().split('T')[0];
+         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+         const lastActive = localStorage.getItem('rage_last_active');
+
+         if (lastActive === today) return;
+
+         if (lastActive === yesterday) {
+            user.streak = (user.streak || 0) + 1;
+         } else if (lastActive && lastActive !== yesterday) {
+            user.streak = 1;
+         } else {
+            user.streak = (user.streak || 0) + 1;
+         }
+
+         localStorage.setItem('rage_last_active', today);
+
+         if (sb && user.id) {
+            await sb.from('users_public').update({ streak: user.streak }).eq('id', user.id);
+         }
+         save();
+         checkAchievements();
+
+         if (user.streak === 7) { toast('🔥 7-Day Streak! WARRIOR MODE', 'var(--orange)'); confetti(); }
+         else if (user.streak === 14) { toast('⚔️ 14-Day Streak! IRON CADET', 'var(--cyan)'); confetti(); }
+         else if (user.streak === 30) { toast('👑 30-Day Streak! LEGEND', 'var(--cyan)'); confetti(); confetti(); }
+      }
+
+      // Add 7 — Password Reset
+      async function resetPassword() {
+         const email = document.getElementById('login-email').value.trim();
+         if (!email) {
+            toast('Enter your email first', 'var(--orange)');
+            return;
+         }
+         try {
+            const { error } = await sb.auth.resetPasswordForEmail(email, {
+               redirectTo: window.location.origin + '?reset=true'
+            });
+            if (error) throw error;
+            toast('Reset link sent to ' + email, 'var(--green)');
+         } catch (e) {
+            toast('Reset failed: ' + e.message, 'var(--orange)');
+         }
       }
 
       // ─── Utilities ───
@@ -1193,7 +1559,124 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
       }
       function getXP() { return user ? user.xp || 0 : 0; }
       function getLevel() { const xp = getXP(); if (xp < 200) return { lvl: 1, title: 'Recruit' }; if (xp < 500) return { lvl: 2, title: 'Recruit' }; if (xp < 1000) return { lvl: 3, title: 'Cadet' }; if (xp < 1800) return { lvl: 4, title: 'Cadet' }; if (xp < 2800) return { lvl: 5, title: 'Operative' }; if (xp < 4000) return { lvl: 6, title: 'Operative' }; if (xp < 5500) return { lvl: 7, title: 'Commander' }; if (xp < 7500) return { lvl: 8, title: 'Commander' }; if (xp < 10000) return { lvl: 9, title: 'Elite' }; return { lvl: 10, title: 'Legend' }; }
-      function addXP(n) { if (!user) return; user.xp = (user.xp || 0) + n; save(); toast(`+${n} XP`, 'var(--cyan)'); }
+      function addXP(n) {
+         if (!user) return;
+         const oldLevel = getLevel().lvl;
+         user.xp = (user.xp || 0) + n;
+         const newLevel = getLevel().lvl;
+         save();
+         toast(`+${n} XP`, 'var(--cyan)');
+
+         if (newLevel > oldLevel) {
+            showLevelUp(newLevel);
+         }
+         checkAchievements();
+      }
+
+      function showLevelUp(lvl) {
+         const modal = document.createElement('div');
+         modal.className = 'screen active';
+         modal.style.cssText = 'background:rgba(6,9,16,0.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;';
+         modal.innerHTML = `
+            <div class="stagger">
+               <div style="font-size:80px;margin-bottom:20px;">🏆</div>
+               <h1 style="font-family:var(--font-d);font-size:2rem;color:var(--cyan);margin-bottom:10px;">LEVEL UP</h1>
+               <div style="font-family:var(--font-d);font-size:3rem;color:var(--text);margin-bottom:20px;">RANK ${lvl}</div>
+               <p style="color:var(--muted);max-width:250px;margin:0 auto 40px;line-height:1.6;">Your cognitive and operational capacity has increased. New clearance granted.</p>
+               <button class="btn-cyan" onclick="this.parentElement.parentElement.remove()">ACKNOWLEDGE</button>
+            </div>
+         `;
+         document.body.appendChild(modal);
+         confetti();
+         haptic('success');
+      }
+
+      const BADGES = [
+         { id: 'first_task', name: 'First Blood', icon: '🎯', desc: 'Complete your first task.' },
+         { id: 'streak_3', name: 'Triad', icon: '🔥', desc: 'Maintain a 3-day streak.' },
+         { id: 'level_5', name: 'Operative', icon: '💎', desc: 'Reach Level 5.' },
+         { id: 'follow_10', name: 'Networker', icon: '🤝', desc: 'Follow 10 cadets.' }
+      ];
+
+      async function checkAchievements() {
+         if (!user?.id) return;
+         try {
+            const { data: earned } = await sb.from('achievements').select('badge_id').eq('user_id', user.id);
+            const earnedIds = (earned || []).map(a => a.badge_id);
+
+            if (!earnedIds.includes('first_task')) {
+               const doneCount = tasks.filter(t => t.done).length;
+               if (doneCount >= 1) unlockBadge('first_task');
+            }
+            if (!earnedIds.includes('level_5')) {
+               if (getLevel().lvl >= 5) unlockBadge('level_5');
+            }
+         } catch (e) { }
+      }
+
+      async function unlockBadge(id) {
+         const badge = BADGES.find(b => b.id === id);
+         if (!badge) return;
+         try {
+            await sb.from('achievements').insert({ user_id: user.id, badge_id: id, badge_name: badge.name });
+            showBadgeUnlock(badge);
+         } catch (e) { }
+      }
+
+      function showBadgeUnlock(badge) {
+         const t = document.createElement('div');
+         t.style.cssText = `position:fixed;bottom:100px;left:20px;right:20px;background:var(--card);border:1px solid var(--purple);border-radius:12px;padding:15px;display:flex;gap:15px;z-index:10000;animation:fadeUp .4s ease;box-shadow:0 0 30px rgba(124,58,237,0.3);`;
+         t.innerHTML = `
+            <div style="font-size:30px;">${badge.icon}</div>
+            <div>
+               <div style="font-size:10px;color:var(--purple);font-weight:700;">BADGE UNLOCKED</div>
+               <div style="font-family:var(--font-t);font-weight:700;font-size:14px;">${badge.name.toUpperCase()}</div>
+               <div style="font-size:10px;color:var(--muted);">${badge.desc}</div>
+            </div>
+         `;
+         document.body.appendChild(t);
+         confetti();
+         haptic('success');
+         setTimeout(() => t.remove(), 5000);
+      }
+
+      function showMorningBriefing() {
+         const modal = document.createElement('div');
+         modal.className = 'screen active';
+         modal.style.cssText = 'background:var(--bg1);z-index:9000;padding:24px;';
+         modal.innerHTML = `
+            <div class="stagger" style="height:100%;display:flex;flex-direction:column;">
+               <div style="margin-top:40px;">
+                  <div style="font-family:var(--font-d);font-size:12px;color:var(--cyan);letter-spacing:4px;">06:00 AM // SYSTEM BOOT</div>
+                  <h1 style="font-family:var(--font-d);font-size:2.2rem;margin:10px 0;">MORNING<br>BRIEFING</h1>
+               </div>
+
+               <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:30px;">
+                  <div class="card" style="padding:20px;border-left:4px solid var(--orange);">
+                     <div style="font-size:11px;color:var(--orange);font-weight:700;margin-bottom:5px;">STAY ACTIVE</div>
+                     <div style="font-family:var(--font-d);font-size:1.8rem;">${user.streak || 0} DAY STREAK</div>
+                  </div>
+
+                  <div id="ai-briefing-text" style="font-size:14px;line-height:1.6;color:var(--text);">
+                     Good morning, Cadet. Initializing RAGE Core... Analyzing today's mission parameters. 
+                  </div>
+               </div>
+
+               <button class="btn-cyan" onclick="this.parentElement.parentElement.remove()">ENGAGE THE DAY</button>
+            </div>
+         `;
+         document.body.appendChild(modal);
+
+         const prompt = `Give a short, powerful 2-sentence morning greeting for ${user.name}. Mention their ${user.streak}-day streak. Role: Older brother AI mentor.`;
+         fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+         }).then(r => r.json()).then(d => {
+            const txt = d.candidates?.[0]?.content?.parts?.[0]?.text || "Let's crush it today.";
+            document.getElementById('ai-briefing-text').innerText = txt;
+         });
+      }
       function getLevelBounds() { const xp = getXP(); const thresholds = [0, 200, 500, 1000, 1800, 2800, 4000, 5500, 7500, 10000, 15000]; const lv = getLevel().lvl; return { cur: thresholds[lv - 1], next: thresholds[lv], xp }; }
 
       /* ═══════════════════════════════════════
@@ -1261,56 +1744,92 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          AUTH
          ═══════════════════════════════════════ */
       async function doLogin() {
-         const { data, error } = await sb.auth.signInWithPassword({
-            email: document.getElementById('login-email').value,
-            password: document.getElementById('login-pw').value
-         });
-         if (error) return toast(error.message, 'var(--orange)');
-         user = data.user;
-         // Fetch public profile to get xp, level etc
-         const { data: profile } = await sb.from('users_public').select('*').eq('id', user.id).single();
-         if (profile) {
-            user = { ...user, ...profile };
+         if (!sb) {
+            toast('System not ready. Retry.', 'var(--orange)');
+            return;
          }
-         save();
-         navigate('war-room');
-         toast('Welcome back, Cadet.');
+         const email = document.getElementById('login-email').value.trim();
+         const pw = document.getElementById('login-pw').value;
+         if (!email || !pw) return toast('Fill all fields', 'var(--orange)');
+         toast('Authenticating...', 'var(--muted)');
+         try {
+            const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+            if (error) return toast(error.message, 'var(--orange)');
+            const { data: profile } = await sb.from('users_public').select('*').eq('id', data.user.id).single();
+            user = {
+               ...data.user,
+               ...(profile || {}),
+               name: profile?.name || data.user.user_metadata?.name || data.user.email.split('@')[0]
+            };
+            save();
+            await loadUserData();
+            showMorningBriefing();
+            navigate('war-room');
+            toast('Welcome back, Cadet.', 'var(--cyan)');
+         } catch (e) {
+            toast('Login failed: ' + e.message, 'var(--orange)');
+         }
       }
       async function doSignup() {
-         const name = document.getElementById('signup-name').value;
-         const uname = document.getElementById('signup-user').value;
-         const email = document.getElementById('signup-email').value;
+         if (!sb) return toast('System not ready', 'var(--orange)');
+         const name = document.getElementById('signup-name').value.trim();
+         const uname = document.getElementById('signup-user').value.trim();
+         const email = document.getElementById('signup-email').value.trim();
          const pw = document.getElementById('signup-pw').value;
          const cpw = document.getElementById('signup-cpw').value;
          if (!name || !uname || !email || !pw) return toast('Fill all fields', 'var(--orange)');
          if (pw !== cpw) return toast('Passwords do not match', 'var(--orange)');
-
-         const { data, error } = await sb.auth.signUp({
-            email: email,
-            password: pw,
-            options: {
-               data: {
-                  name: name,
-                  username: uname
-               }
-            }
-         });
-         if (error) return toast(error.message, 'var(--orange)');
-
-         user = {
-            ...data.user,
-            name: name,
-            username: uname,
-            xp: 0, streak: 0, level: 1, subjects: []
-         };
-         save();
-         initOnboarding();
-         showScreen('onboarding-screen');
-         toast(`Welcome to RAGE OS, ${name}!`);
+         if (pw.length < 6) return toast('Password min 6 chars', 'var(--orange)');
+         toast('Enlisting...', 'var(--muted)');
+         try {
+            const { data, error } = await sb.auth.signUp({
+               email, password: pw,
+               options: { data: { name, username: uname } }
+            });
+            if (error) return toast(error.message, 'var(--orange)');
+            await sb.from('users_public').upsert({
+               id: data.user.id,
+               name,
+               username: uname,
+               xp: 0,
+               streak: 0,
+               level: 1,
+               subjects: [],
+               study_target: 4,
+               wake_time: '06:00',
+               sleep_time: '23:00',
+               archetype: 'THE FOCUSED BUILDER',
+               created_at: new Date().toISOString()
+            });
+            user = {
+               ...data.user,
+               name, username: uname,
+               xp: 0, streak: 0, level: 1,
+               subjects: []
+            };
+            save();
+            toast(`Welcome to RAGE OS, ${name}!`, 'var(--cyan)');
+            initOnboarding();
+            showScreen('onboarding-screen');
+         } catch (e) {
+            toast('Signup failed: ' + e.message, 'var(--orange)');
+         }
       }
       async function doGoogleLogin() {
          const { error } = await sb.auth.signInWithOAuth({ provider: 'google' });
          if (error) toast(error.message, 'var(--orange)');
+      }
+
+      async function doLogout() {
+         if (sb) await sb.auth.signOut();
+         user = null;
+         tasks = [];
+         goals = [];
+         chatHistory = [];
+         dailyLog = {};
+         localStorage.clear();
+         showScreen('login-screen');
+         toast('Session terminated', 'var(--orange)');
       }
 
       /* ═══════════════════════════════════════
@@ -1461,7 +1980,24 @@ ${t.done ? '<span class="tag tag-green" style="font-size:9px">COMPLETE</span>' :
          updateClock(); if (!window._clockInt) { window._clockInt = setInterval(updateClock, 1000); }
       }
 
-      function setMood(i) { dailyLog.mood = i; save(); renderWarRoom(); }
+      function setMood(i) {
+         dailyLog.mood = i;
+         dailyLog.date = new Date().toDateString();
+         save();
+         updateStreak();
+         if (sb && user?.id) {
+            sb.from('daily_logs').upsert({
+               user_id: user.id,
+               date: new Date().toDateString(),
+               mood: i,
+               study_hours: dailyLog.studyHours || 0,
+               workout: dailyLog.workout || false,
+               sleep_on_time: dailyLog.sleepOnTime || false,
+               battery_score: getBattery()
+            }).catch(e => console.log('Log sync error:', e));
+         }
+         renderWarRoom();
+      }
       function addTask() {
          const inp = document.getElementById('new-task'); const pr = document.getElementById('new-task-priority');
          if (!inp.value.trim()) return;
@@ -1473,7 +2009,19 @@ ${t.done ? '<span class="tag tag-green" style="font-size:9px">COMPLETE</span>' :
          const todayTasks = tasks.filter(t => t.date === today);
          const task = todayTasks[i];
          const realIdx = tasks.findIndex(t => t.id === task.id);
-         if (realIdx >= 0) { tasks[realIdx].done = !tasks[realIdx].done; if (tasks[realIdx].done) { addXP(10); confetti(); } save(); renderWarRoom(); }
+         if (realIdx >= 0) {
+            tasks[realIdx].done = !tasks[realIdx].done;
+            if (tasks[realIdx].done) {
+               addXP(10);
+               updateStreak();
+               confetti();
+               haptic('success');
+            } else {
+               haptic('medium');
+            }
+            save();
+            renderWarRoom();
+         }
       }
       /* ═══════════════════════════════════════
       THE GRID (TIMETABLE)
@@ -1855,6 +2403,9 @@ Colors: cyan, green, purple, orange, grey`;
       }
       function renderNorthStar() {
          const s = document.getElementById('north-star');
+         const activeGoals = goals.filter(g => g.status === 'active');
+         const critical = activeGoals[0] || null;
+
          s.innerHTML = `
     <div style="padding:16px 20px;" class="stagger">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -1863,148 +2414,214 @@ Colors: cyan, green, purple, orange, grey`;
         </div>
         
         <div style="display:flex;gap:10px;margin-bottom:20px;">
-            <div class="tag tag-cyan" style="flex:1;text-align:center;padding:8px;">ACTIVE DIRECTIVES: 04</div>
-            <div class="tag tag-orange" style="flex:1;text-align:center;padding:8px;">CRITICAL ALERTS: 01</div>
+            <div class="tag tag-cyan" style="flex:1;text-align:center;padding:8px;">ACTIVE DIRECTIVES: ${activeGoals.length.toString().padStart(2, '0')}</div>
+            <div class="tag tag-orange" style="flex:1;text-align:center;padding:8px;">CRITICAL ALERTS: ${critical ? '01' : '00'}</div>
         </div>
         
         <!-- Critical Mission -->
+        ${critical ? `
         <div class="card" style="margin-bottom:20px;border:1px solid var(--orange);box-shadow:0 0 15px var(--glow-o);">
             <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
                 <span style="font-family:var(--font-d);font-size:10px;color:var(--orange);">⚠️ CRITICAL MISSION</span>
                 <span class="tag tag-orange">DIRECT</span>
             </div>
-            <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);margin-bottom:4px;">CYBER-SECURITY CERT</div>
-            <div style="font-size:10px;color:var(--muted);margin-bottom:15px;">Target Acquisition: Dec 2026</div>
+            <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);margin-bottom:4px;">${critical.title.toUpperCase()}</div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:15px;">Target Acquisition: ${critical.deadline || 'PENDING'}</div>
             
             <div style="height:6px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-bottom:8px;">
-                <div style="width:65%;height:100%;background:var(--orange);"></div>
+                <div style="width:${critical.progress || 0}%;height:100%;background:var(--orange);"></div>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:15px;">
-                <span>65% COMPLETE</span>
-                <span>INITIATED: JAN 2026</span>
-            </div>
-            
-            <div style="background:rgba(255,107,53,0.05);padding:10px;border-radius:var(--r-sm);border-left:2px solid var(--orange);margin-bottom:15px;">
-                <div style="font-size:10px;color:var(--orange);font-weight:700;margin-bottom:4px;">RAGE ALERT</div>
-                <p style="font-size:10px;color:var(--muted);line-height:1.4;">Velocity drop detected. You are 3 days behind optimal trajectory. Engage study block immediately.</p>
+                <span>${critical.progress || 0}% COMPLETE</span>
+                <span>INITIATED: ${new Date(critical.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()}</span>
             </div>
             
             <button class="btn-orange" style="padding:10px;font-size:12px;" onclick="navigate('the-grid')">RESUME PROTOCOL →</button>
         </div>
+        ` : '<div class="card" style="text-align:center;padding:20px;color:var(--muted);margin-bottom:20px;">No critical mission assigned.</div>'}
         
         <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:12px;">ACTIVE_DIRECTIVES</div>
-        <div class="card" style="margin-bottom:10px;">
-            <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:4px;">NEURAL LINGUISTICS</div>
-            <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">Target: Mar 2027 • 22% Progress</div>
-            <div style="height:3px;background:var(--bg2);border-radius:2px;overflow:hidden;">
-                <div style="width:22%;height:100%;background:var(--cyan);"></div>
-            </div>
+        <div id="goals-sync-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+            ${activeGoals.length > 0 ? activeGoals.map(g => `
+                <div class="card" style="margin-bottom:10px;">
+                    <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:4px;">${g.title.toUpperCase()}</div>
+                    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">Category: ${g.category} • ${g.progress}% Progress</div>
+                    <div style="height:3px;background:var(--bg2);border-radius:2px;overflow:hidden;">
+                        <div style="width:${g.progress}%;height:100%;background:var(--cyan);"></div>
+                    </div>
+                </div>
+            `).join('') : '<div style="color:var(--muted);font-size:11px;">No active directives.</div>'}
         </div>
         
-        <button class="btn-outline" style="width:100%;border-style:dashed;margin-top:10px;" onclick="toast('Goal initialization sequence locked')">+ NEW DIRECTIVE</button>
+        <div class="card" style="padding:15px;border-style:dashed;">
+           <input type="text" id="goal-title-input" placeholder="New Directive Title..." style="width:100%;background:none;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;padding:8px 0;margin-bottom:10px;">
+           <button class="btn-cyan" style="font-size:10px;padding:8px;" onclick="addNewGoal()">+ INITIATE NEW DIRECTIVE</button>
+        </div>
     </div>
     `;
       }
 
-      function renderCommander() {
+      async function addNewGoal() {
+         const title = document.getElementById('goal-title-input').value.trim();
+         if (!title) return toast('Directive title required', 'var(--orange)');
+
+         const newGoal = {
+            id: uid(),
+            user_id: user.id,
+            title,
+            category: 'Personal',
+            progress: 0,
+            status: 'active',
+            deadline: '2026-12-31',
+            created_at: new Date().toISOString()
+         };
+
+         goals.push(newGoal);
+         save();
+         renderNorthStar();
+         toast('New Directive Established', 'var(--cyan)');
+      }
+
+      async function renderCommander() {
          const s = document.getElementById('the-commander');
          const lv = getLevel();
          const lb = getLevelBounds();
          const pct = lb.next > lb.cur ? Math.round(((lb.xp - lb.cur) / (lb.next - lb.cur)) * 100) : 100;
 
+         let followerCount = 0;
+         let followingCount = 0;
+         let postCount = 0;
+         try {
+            const [f1, f2, p] = await Promise.all([
+               sb.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', user?.id),
+               sb.from('followers').select('*', { count: 'exact', head: true }).eq('follower_id', user?.id),
+               sb.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', user?.id)
+            ]);
+            followerCount = f1.count || 0;
+            followingCount = f2.count || 0;
+            postCount = p.count || 0;
+         } catch (e) { }
+
+         const earned = JSON.parse(localStorage.getItem('rage_badges') || '[]');
+         const allBadges = [
+            { id: 'first_task', icon: '🎯', name: 'First Mission' },
+            { id: 'streak_5', icon: '🔥', name: '5-Day Warrior' },
+            { id: 'streak_14', icon: '⚔️', name: 'Iron Cadet' },
+            { id: 'streak_30', icon: '👑', name: 'Legend' },
+            { id: 'level_5', icon: '⭐', name: 'Operative' },
+            { id: 'level_10', icon: '💎', name: 'Elite' },
+            { id: 'tasks_10', icon: '🚀', name: 'Mission Runner' },
+            { id: 'tasks_50', icon: '🏆', name: 'Chapter Boss' }
+         ];
+
          s.innerHTML = `
     <div style="padding:16px 20px;" class="stagger">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
-            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">THE COMMANDER</h1>
-            <span>⚙️</span>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
+      <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">THE COMMANDER</h1>
+      <span>⚙️</span>
+  </div>
+  
+  <!-- Hero -->
+  <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:30px;">
+      <div style="width:100px;height:100px;border-radius:50%;border:3px solid var(--cyan);padding:4px;margin-bottom:15px;box-shadow:0 0 20px var(--glow-c);">
+          <div style="width:100%;height:100%;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:40px;">${user?.name?.[0].toUpperCase()}</div>
+      </div>
+      <h2 style="font-family:var(--font-d);font-size:1.4rem;">${(user?.name || 'Shivam').toUpperCase()}</h2>
+      <div style="font-family:var(--font-t);font-size:13px;color:var(--cyan);letter-spacing:2px;margin-top:5px;">LEVEL ${lv.lvl} ${lv.title.toUpperCase()}</div>
+      
+      <div style="width:100%;max-width:300px;margin-top:20px;">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:6px;">
+              <span>XP PROGRESS</span>
+              <span>${lb.xp} / ${lb.next}</span>
+          </div>
+          <div style="height:6px;background:var(--bg2);border-radius:4px;overflow:hidden;">
+              <div style="width:${pct}%;height:100%;background:linear-gradient(90deg, var(--cyan), var(--purple));"></div>
+          </div>
+          <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:6px;">${lb.next - lb.xp} XP TO LEVEL ${lv.lvl + 1}</div>
+      </div>
+
+      <div style="display:flex;gap:20px;justify-content:center;margin-top:20px;">
+        <div style="text-align:center;">
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);">${followerCount}</div>
+          <div style="font-size:10px;color:var(--muted);">FOLLOWERS</div>
         </div>
-        
-        <!-- Hero -->
-        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:30px;">
-            <div style="width:100px;height:100px;border-radius:50%;border:3px solid var(--cyan);padding:4px;margin-bottom:15px;box-shadow:0 0 20px var(--glow-c);">
-                <div style="width:100%;height:100%;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:40px;">${user?.name?.[0].toUpperCase()}</div>
-            </div>
-            <h2 style="font-family:var(--font-d);font-size:1.4rem;">${(user?.name || 'Shivam').toUpperCase()}</h2>
-            <div style="font-family:var(--font-t);font-size:13px;color:var(--cyan);letter-spacing:2px;margin-top:5px;">LEVEL ${lv.lvl} ${lv.title.toUpperCase()}</div>
-            
-            <div style="width:100%;max-width:300px;margin-top:20px;">
-                <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:6px;">
-                    <span>XP PROGRESS</span>
-                    <span>${lb.xp} / ${lb.next}</span>
-                </div>
-                <div style="height:6px;background:var(--bg2);border-radius:4px;overflow:hidden;">
-                    <div style="width:${pct}%;height:100%;background:linear-gradient(90deg, var(--cyan), var(--purple));"></div>
-                </div>
-                <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:6px;">${lb.next - lb.xp} XP TO LEVEL ${lv.lvl + 1}</div>
-            </div>
+        <div style="text-align:center;">
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);">${followingCount}</div>
+          <div style="font-size:10px;color:var(--muted);">FOLLOWING</div>
         </div>
-        
-        <!-- Stats Grid -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:30px;">
-            <div class="card" style="padding:15px;">
-                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">STUDY HOURS</div>
-                <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">124.5 <span style="font-size:10px;color:var(--green);">+12%</span></div>
-            </div>
-            <div class="card" style="padding:15px;">
-                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">DAY STREAK</div>
-                <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${user?.streak || 0} <span style="font-size:10px;color:var(--green);">+1</span></div>
-            </div>
-            <div class="card" style="padding:15px;">
-                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">TASKS CRUSHED</div>
-                <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">87 <span style="font-size:10px;color:var(--green);">+5%</span></div>
-            </div>
-            <div class="card" style="padding:15px;">
-                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">FOCUS SCORE</div>
-                <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">92% <span style="font-size:10px;color:var(--green);">+3%</span></div>
-            </div>
+        <div style="text-align:center;">
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);">${postCount}</div>
+          <div style="font-size:10px;color:var(--muted);">POSTS</div>
         </div>
-        
-        <!-- Achievements -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-            <span style="font-family:var(--font-t);font-weight:700;font-size:14px;">ACHIEVEMENTS</span>
-            <span style="font-size:11px;color:var(--cyan);">View All</span>
-        </div>
-        <div style="display:flex;gap:15px;overflow-x:auto;padding-bottom:10px;margin-bottom:30px;scrollbar-width:none;">
-            ${['🎓', '⚡', '📖', '💎', '🔥'].map((b, i) => `
-                <div style="flex-shrink:0;width:56px;height:56px;background:var(--card);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid ${i < 3 ? 'var(--cyan)' : 'var(--border)'};box-shadow:${i < 3 ? '0 0 10px var(--glow-c)' : 'none'};opacity:${i < 3 ? 1 : 0.4};">
-                    ${b}
-                </div>
-            `).join('')}
-        </div>
-        
-        <!-- Personality -->
-        <div class="card" style="padding:20px;border-left:4px solid var(--cyan);">
-            <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:5px;">RAGE PERSONALITY REPORT</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:15px;">Analysing complete. Updating weekly.</div>
-            <div style="font-size:14px;font-family:var(--font-d);color:var(--cyan);margin-bottom:10px;">ARCHETYPE: THE FOCUSED BUILDER</div>
-            <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:15px;">You exhibit high-consistency patterns in early morning study blocks. Strategy: maintain current velocity to reach Level 8 by Sunday.</p>
+      </div>
+  </div>
+  
+  <!-- Stats Grid -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:30px;">
+      <div class="card" style="padding:15px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">STUDY HOURS</div>
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${Math.round((dailyLog.studyHours || 0) * 10) / 10} h</div>
+      </div>
+      <div class="card" style="padding:15px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">DAY STREAK</div>
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${user?.streak || 0} 🔥</div>
+      </div>
+      <div class="card" style="padding:15px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">TASKS CRUSHED</div>
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${tasks.filter(t => t.done).length} ⚔️</div>
+      </div>
+      <div class="card" style="padding:15px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">BATTERY LEVEL</div>
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${getBattery()}% ⚡</div>
+      </div>
+  </div>
+  
+  <!-- Achievements -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+      <span style="font-family:var(--font-t);font-weight:700;font-size:14px;">ACHIEVEMENTS</span>
+      <span style="font-size:11px;color:var(--cyan);">View All</span>
+  </div>
+  <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;margin-bottom:30px;scrollbar-width:none;">
+    ${allBadges.map(b => {
+            const isEarned = earned.includes(b.id);
+            return `
+      <div style="flex-shrink:0;width:56px;height:56px;background:var(--card);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid ${isEarned ? 'var(--cyan)' : 'var(--border)'};box-shadow:${isEarned ? '0 0 10px var(--glow-c)' : 'none'};opacity:${isEarned ? 1 : 0.3};" title="${b.name}">
+        ${b.icon}
+      </div>`;
+         }).join('')}
+  </div>
+  
+  <!-- Personality -->
+  <div class="card" style="padding:20px;border-left:4px solid var(--cyan);">
+      <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:5px;">RAGE PERSONALITY REPORT</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:15px;">Analysing complete. Updating weekly.</div>
+      <div style="font-size:14px;font-family:var(--font-d);color:var(--cyan);margin-bottom:10px;">ARCHETYPE: ${user.archetype || 'THE FOCUSED BUILDER'}</div>
+      <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:15px;">You exhibit high-consistency patterns in early morning study blocks. Strategy: maintain current velocity to reach Level 8 </p>
             <div style="display:flex;gap:8px;">
                 <span class="tag tag-cyan">Analytical</span>
                 <span class="tag tag-cyan">Disciplined</span>
                 <span class="tag tag-cyan">Strategist</span>
             </div>
         </div>
+
+        <button class="btn-orange" style="margin-top:40px;background:rgba(255,107,53,0.1);border:1px solid var(--orange);color:var(--orange);box-shadow:none;" onclick="doLogout()">TERMINATE SESSION</button>
     </div>
     `;
       }
 
       async function renderNetwork() {
          const s = document.getElementById('the-network');
-
-         // Fix 4: Fetch real posts
-         let posts = [];
-         try {
-            const { data } = await sb.from('posts').select('*').order('created_at', { ascending: false }).limit(20);
-            posts = data || [];
-         } catch (e) { console.error(e); }
-
-         // Fix 9: Squad row will be updated by Presence
          s.innerHTML = `
     <div style="padding:16px 20px;" class="stagger">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
             <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">THE NETWORK</h1>
             <div style="display:flex;gap:15px;"><span>🔔</span><div style="width:30px;height:30px;border-radius:50%;background:var(--card);border:1px solid var(--border);"></div></div>
         </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:20px;">
+          <input type="text" id="user-search" placeholder="Search cadets by @username..." style="flex:1;font-size:13px;" oninput="searchCadets(this.value)">
+        </div>
+        <div id="search-results" style="margin-bottom:20px;display:flex;flex-direction:column;gap:10px;"></div>
         
         <!-- Fix 7: Stories Row -->
         <div id="stories-row" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:15px;margin-bottom:10px;scrollbar-width:none;">
@@ -2026,24 +2643,7 @@ Colors: cyan, green, purple, orange, grey`;
         <!-- Fix 4: Social Feed (Arena) -->
         <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:15px;">THE ARENA</div>
         <div id="arena-feed" style="display:flex;flex-direction:column;gap:15px;">
-            ${posts.length ? posts.map(p => `
-                <div class="card" style="padding:15px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
-                        <div style="width:36px;height:36px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;">${p.user_avatar || '👤'}</div>
-                        <div style="flex:1;">
-                            <div style="font-size:13px;font-family:var(--font-t);font-weight:700;">@${p.user_name} <span class="tag tag-cyan" style="font-size:8px;padding:2px 6px;">LVL ${p.user_level}</span></div>
-                            <div style="font-size:10px;color:var(--muted);">${new Date(p.created_at).toLocaleTimeString()}</div>
-                        </div>
-                        <button class="btn-outline" style="width:auto;padding:4px 10px;font-size:9px;border-radius:15px;" onclick="toggleFollow('${p.user_id}')">FOLLOW</button>
-                    </div>
-                    <div style="font-size:13px;line-height:1.5;margin-bottom:15px;">${p.content}</div>
-                    <div style="display:flex;gap:15px;">
-                        <span style="font-size:15px;cursor:pointer;" onclick="reactToPost('${p.id}', '🔥')">🔥 ${p.reactions?.fire || 0}</span>
-                        <span style="font-size:15px;cursor:pointer;" onclick="reactToPost('${p.id}', '⚡')">⚡ ${p.reactions?.zap || 0}</span>
-                        <span style="font-size:15px;cursor:pointer;" onclick="toast('Reply coming soon...')">💭</span>
-                    </div>
-                </div>
-            `).join('') : '<div class="card" style="text-align:center;color:var(--muted);padding:20px;">Arena is quiet. Be the first to broadcast.</div>'}
+            ${skeletonCards(3)}
         </div>
 
         <!-- Fix 12: Accountability Pacts -->
@@ -2068,18 +2668,38 @@ Colors: cyan, green, purple, orange, grey`;
     </div>
     <button style="position:fixed;bottom:90px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--cyan);color:var(--bg1);font-size:24px;box-shadow:0 0 20px var(--glow-c);z-index:10;display:flex;align-items:center;justify-content:center;" onclick="showPostModal()">+</button>
     `;
+
          initPresence();
+
+         // Fetch real posts
+         try {
+            const { data: posts } = await sb.from('posts').select('*').order('created_at', { ascending: false }).limit(20);
+            const feed = document.getElementById('arena-feed');
+            if (feed && posts) {
+               feed.innerHTML = posts.length ? posts.map(p => `
+                 <div class="card" style="padding:15px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                        <div style="width:36px;height:36px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;">${p.user_avatar || '👤'}</div>
+                        <div style="flex:1;">
+                            <div style="font-size:13px;font-family:var(--font-t);font-weight:700;">@${p.user_name} <span class="tag tag-cyan" style="font-size:8px;padding:2px 6px;">LVL ${p.user_level}</span></div>
+                            <div style="font-size:10px;color:var(--muted);">${new Date(p.created_at).toLocaleTimeString()}</div>
+                        </div>
+                        <button class="btn-outline" style="width:auto;padding:4px 10px;font-size:9px;border-radius:15px;" id="follow-btn-${p.user_id}" onclick="toggleFollow('${p.user_id}', '${p.user_name}', this)">FOLLOW</button>
+                    </div>
+                    <div style="font-size:13px;line-height:1.5;margin-bottom:15px;">${p.content}</div>
+                    <div style="display:flex;gap:15px;">
+                        <span style="font-size:15px;cursor:pointer;" onclick="reactToPost('${p.id}', '🔥')">🔥 ${p.reactions?.fire || 0}</span>
+                        <span style="font-size:15px;cursor:pointer;" onclick="reactToPost('${p.id}', '⚡')">⚡ ${p.reactions?.zap || 0}</span>
+                        <span style="font-size:15px;cursor:pointer;" onclick="toast('Reply coming soon...')">💭</span>
+                    </div>
+                 </div>
+               `).join('') : '<div class="card" style="text-align:center;color:var(--muted);padding:20px;">Arena is quiet. Be the first to broadcast.</div>';
+               checkFollowStatuses(posts.map(p => ({ id: p.user_id })));
+            }
+         } catch (e) { console.error(e); }
       }
       async function renderComms() {
          const s = document.getElementById('comms-screen');
-
-         // Fix 3: Fetch real contacts from Supabase
-         let contacts = [];
-         try {
-            const { data } = await sb.from('users_public').select('*').neq('id', user?.id).limit(10);
-            contacts = data || [];
-         } catch (e) { console.error(e); }
-
          s.innerHTML = `
     <div style="padding:16px 20px;" class="stagger">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -2087,8 +2707,19 @@ Colors: cyan, green, purple, orange, grey`;
             <span>🔍</span>
         </div>
         
-        <div style="display:flex;flex-direction:column;gap:12px;">
-            ${contacts.length ? contacts.map(c => `
+        <div id="contacts-list" style="display:flex;flex-direction:column;gap:12px;">
+            ${skeletonCards(4)}
+        </div>
+    </div>
+    <div style="position:fixed;bottom:90px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--cyan);color:var(--bg1);font-size:24px;box-shadow:0 0 20px var(--glow-c);z-index:10;display:flex;align-items:center;justify-content:center;" onclick="toast('Direct discovery active...')">➕</div>
+    `;
+
+         // Fix 3: Fetch real contacts from Supabase
+         try {
+            const { data: contacts } = await sb.from('users_public').select('*').neq('id', user?.id).limit(10);
+            const list = document.getElementById('contacts-list');
+            if (list && contacts) {
+               list.innerHTML = contacts.length ? contacts.map(c => `
                 <div class="card" style="padding:15px;display:flex;align-items:center;gap:15px;cursor:pointer;" onclick="openDirectChat('${c.id}', '${c.name}', '${c.avatar || '👤'}')">
                     <div style="width:44px;height:44px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;">
                         ${c.avatar || '👤'}
@@ -2102,11 +2733,9 @@ Colors: cyan, green, purple, orange, grey`;
                         <div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">Tap to initiate transmission...</div>
                     </div>
                 </div>
-            `).join('') : '<div class="card" style="text-align:center;color:var(--muted);padding:20px;">No other cadets found on the frequency.</div>'}
-        </div>
-    </div>
-    <div style="position:fixed;bottom:90px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--cyan);color:var(--bg1);font-size:24px;box-shadow:0 0 20px var(--glow-c);z-index:10;display:flex;align-items:center;justify-content:center;" onclick="toast('Direct discovery active...')">➕</div>
-    `;
+            `).join('') : '<div class="card" style="text-align:center;color:var(--muted);padding:20px;">No other cadets found on the frequency.</div>';
+            }
+         } catch (e) { console.error(e); }
       }
 
       function renderNotifications() {
@@ -2141,40 +2770,128 @@ Colors: cyan, green, purple, orange, grey`;
     `;
       }
 
-      function renderChallenges() {
+      async function renderChallenges() {
          const s = document.getElementById('challenges-screen');
          s.innerHTML = `
-    <div style="padding:16px 20px;" class="stagger">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">CHALLENGES</h1>
-            <span>🏆</span>
-        </div>
-        
-        <div class="card" style="padding:20px;margin-bottom:20px;background:linear-gradient(135deg, rgba(0,245,255,0.1), rgba(124,58,237,0.1));">
-            <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:8px;">COMMUNITY_CHALLENGE</div>
-            <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);margin-bottom:10px;">30 DAY RAGE STREAK</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:20px;">Join 45 other cadets in a 30-day focus marathon.</div>
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="font-size:11px;color:var(--text);">Current: Day 12</div>
-                <button class="btn-cyan" style="width:auto;padding:8px 20px;" onclick="toast('Challenge Accepted!')">ENGAGE</button>
-            </div>
-        </div>
-        
-        <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:15px;">ACTIVE_CHALLENGES</div>
-        <div class="card" style="padding:15px;margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-                <span style="font-size:13px;font-family:var(--font-t);font-weight:700;">Deep Work Sprint</span>
-                <span class="tag tag-green">ON TRACK</span>
-            </div>
-            <div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden;margin-bottom:10px;">
-                <div style="width:75%;height:100%;background:var(--green);"></div>
-            </div>
-            <div style="font-size:9px;color:var(--muted);text-align:right;">15 / 20 DAYS COMPLETE</div>
-        </div>
-        
-        <button class="btn-outline" style="width:100%;border-style:dashed;margin-top:10px;" onclick="toast('Initiating challenge protocols...')">LAUNCH NEW CHALLENGE</button>
+  <div style="padding:16px 20px;" class="stagger">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h1 style="font-family: var(--font-d);font-size:1.5rem; color:var(--text); letter-spacing:1px;">CHALLENGES</h1>
+      <span>🏆</span>
     </div>
-    `;
+    <div id="challenges-list" style="display:flex; flex-direction:column;gap:15px;">
+      ${skeletonCards(2)}
+    </div>
+    <button class="btn-outline" style="width:100%; border-style:dashed;margin-top:20px;" onclick="showCreateChallenge()">
+      + LAUNCH NEW CHALLENGE
+    </button>
+  </div>`;
+
+         try {
+            const { data: challenges } = await sb.from('challenges').select('*, challenge_participants(user_id, days_completed, user_name)').order('created_at', { ascending: false }).limit(10);
+            const list = document.getElementById('challenges-list');
+            if (!list) return;
+
+            if (!challenges?.length) {
+               list.innerHTML = `
+      <div class="card" style="text-align:center; padding:30px;">
+        <div style="font-size:30px; margin-bottom:10px;">⚔️</div>
+        <div style="font-size:13px; color:var(--muted);">No active challenges. Be the first to launch one.</div>
+      </div>`;
+               return;
+            }
+
+            list.innerHTML = challenges.map(c => {
+               const myEntry = c.challenge_participants?.find(p => p.user_id === user?.id);
+               const totalParticipants = c.challenge_participants?.length || 0;
+               const isJoined = !!myEntry;
+               const daysComplete = myEntry?.days_completed || 0;
+               const pct = Math.round((daysComplete / c.duration_days) * 100);
+               return `
+      <div class="card" style="padding:18px; ${isJoined ? 'border-color:var(--cyan);' : ''}">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-family: var(--font-t);font-weight:700; font-size:15px;">${c.title}</span>
+          <span class="tag ${isJoined ? 'tag-green' : 'tag-cyan'}">${isJoined ? 'ACTIVE' : 'OPEN'}</span>
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-bottom:12px;">
+          ${c.description || ''} • ${c.duration_days} days • ${totalParticipants} cadets
+        </div>
+        ${isJoined ? `
+        <div style="height:4px; background:var(--bg2); border-radius:2px; overflow:hidden; margin-bottom:6px;">
+          <div style="width:${pct}%; height:100%; background:var(--green);"></div>
+        </div>
+        <div style="font-size:10px; color:var(--muted); margin-bottom:12px;">Day ${daysComplete} of ${c.duration_days}</div>
+        <button class="btn-cyan" style="font-size:11px; padding:8px;" onclick="logChallengeDay('${c.id}')">LOG TODAY ✓</button>
+        ` : `
+        <button class="btn-outline" style="font-size:11px; padding:8px;width:100%;" onclick="joinChallenge('${c.id}', '${c.title}')">ENGAGE</button>
+        `}
+      </div>`;
+            }).join('');
+         } catch (e) { console.error('Challenges error:', e); }
+      }
+
+      async function joinChallenge(challengeId, title) {
+         if (!user?.id) return;
+         try {
+            await sb.from('challenge_participants').insert({ challenge_id: challengeId, user_id: user.id, user_name: user.name, days_completed: 0 });
+            toast('Challenge accepted!', 'var(--cyan)');
+            addXP(20);
+            renderChallenges();
+         } catch (e) { toast('Join failed', 'var(--orange)'); }
+      }
+
+      async function logChallengeDay(challengeId) {
+         if (!user?.id) return;
+         try {
+            const { data } = await sb.from('challenge_participants').select('days_completed, last_log').eq('challenge_id', challengeId).eq('user_id', user.id).single();
+            const today = new Date().toISOString().split('T')[0];
+            if (data?.last_log === today) { toast('Already logged today', 'var(--muted)'); return; }
+            await sb.from('challenge_participants').update({ days_completed: (data?.days_completed || 0) + 1, last_log: today }).eq('challenge_id', challengeId).eq('user_id', user.id);
+            toast('Day logged! Keep going!', 'var(--green)');
+            addXP(30);
+            confetti();
+            renderChallenges();
+         } catch (e) { toast('Log failed', 'var(--orange)'); }
+      }
+
+      function showCreateChallenge() {
+         const modal = document.createElement('div');
+         modal.id = 'challenge-modal';
+         modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:500;display:flex;align-items:flex-end;`;
+         modal.innerHTML = `
+  <div style="width:100%; background:var(--card); border-radius:20px 20px 0 0; padding:24px; border-top:1px solid var(--border);">
+    <div style="font-family:var(--font-d); font-size:14px;color:var(--cyan); margin-bottom:20px;">LAUNCH CHALLENGE</div>
+    <input type="text" id="ch-title" placeholder="Challenge name..." style="margin-bottom:12px;">
+    <textarea id="ch-desc" placeholder="What is the mission?" style="height:80px;resize:none; margin-bottom:12px;"></textarea>
+    <div style="display:flex; gap:10px;margin-bottom:20px;">
+      <select id="ch-days" style="flex:1;">
+        <option value="7">7 Days</option>
+        <option value="14">14 Days</option>
+        <option value="21">21 Days</option>
+        <option value="30" selected>30 Days</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('challenge-modal').remove()" class="btn-outline" style="flex:1;">CANCEL</button>
+      <button onclick="createChallenge()" class="btn-cyan" style="flex:1;">LAUNCH</button>
+    </div>
+  </div>`;
+         document.body.appendChild(modal);
+      }
+
+      async function createChallenge() {
+         const title = document.getElementById('ch-title').value.trim();
+         const desc = document.getElementById('ch-desc').value.trim();
+         const days = parseInt(document.getElementById('ch-days').value);
+         if (!title) return toast('Add a title', 'var(--orange)');
+         try {
+            const { data } = await sb.from('challenges').insert({ creator_id: user.id, creator_name: user.name, title, description: desc, duration_days: days }).select().single();
+            await sb.from('challenge_participants').insert({ challenge_id: data.id, user_id: user.id, user_name: user.name, days_completed: 0 });
+            document.getElementById('challenge-modal').remove();
+            toast('Challenge launched!', 'var(--cyan)');
+            addXP(50);
+            confetti();
+            renderChallenges();
+         } catch (e) { toast('Launch failed', 'var(--orange)'); }
       }
       /* ═══════════════════════════════════════
       LIFE CYCLE & IDLE DETECTION
@@ -2254,12 +2971,13 @@ Colors: cyan, green, purple, orange, grey`;
       async function openDirectChat(targetId, targetName, targetAvatar) {
          currentDirectUser = { id: targetId, name: targetName, avatar: targetAvatar };
          const s = document.getElementById('comms-screen');
+         const convId = [user.id, targetId].sort().join('_');
 
          let history = [];
          try {
             const { data } = await sb.from('messages')
                .select('*')
-               .or(`and(sender_id.eq.${user.id},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${user.id})`)
+               .eq('conversation_id', convId)
                .order('created_at', { ascending: true });
             history = data || [];
          } catch (e) { console.error(e); }
@@ -2298,11 +3016,14 @@ Colors: cyan, green, purple, orange, grey`;
          const chat = document.getElementById('dm-messages');
          if (chat) chat.scrollTop = chat.scrollHeight;
 
-         sb.channel(`convo-${targetId}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-               if (payload.new.sender_id === targetId || payload.new.sender_id === user.id) {
-                  appendDM(payload.new);
-               }
+         sb.channel('convo-' + convId)
+            .on('postgres_changes', {
+               event: 'INSERT',
+               schema: 'public',
+               table: 'messages',
+               filter: 'conversation_id=eq.' + convId
+            }, payload => {
+               appendDM(payload.new);
             }).subscribe();
       }
 
@@ -2313,7 +3034,13 @@ Colors: cyan, green, purple, orange, grey`;
          const content = inp.value.trim();
          if (!content || !currentDirectUser) return;
          try {
-            await sb.from('messages').insert({ sender_id: user.id, receiver_id: currentDirectUser.id, content: content });
+            const convId = [user.id, currentDirectUser.id].sort().join('_');
+            await sb.from('messages').insert({
+               conversation_id: convId,
+               sender_id: user.id,
+               content: content,
+               read: false
+            });
             inp.value = '';
          } catch (e) { toast('Error sending message', 'var(--orange)'); }
       }
@@ -2466,19 +3193,42 @@ Colors: cyan, green, purple, orange, grey`;
       }
 
       // Fix 8: Follow System
-      async function toggleFollow(targetId) {
-         if (!user?.id) return;
+      async function toggleFollow(targetId, targetName, btn) {
+         if (!user?.id || !sb) return;
          try {
-            const { data: existing } = await sb.from('follows').select('*').eq('follower_id', user.id).eq('following_id', targetId).single();
+            const { data: existing } = await sb
+               .from('followers')
+               .select('*')
+               .eq('follower_id', user.id)
+               .eq('following_id', targetId)
+               .maybeSingle();
             if (existing) {
-               await sb.from('follows').delete().eq('id', existing.id);
-               toast('Protocol: Unfollowed Cadet.');
+               await sb.from('followers')
+                  .delete()
+                  .eq('follower_id', user.id)
+                  .eq('following_id', targetId);
+               if (btn) {
+                  btn.textContent = 'FOLLOW';
+                  btn.style.background = '';
+                  btn.style.color = '';
+               }
+               toast('Unfollowed', 'var(--muted)');
             } else {
-               await sb.from('follows').insert({ follower_id: user.id, following_id: targetId });
-               toast('Protocol: Following Cadet.', 'var(--green)');
+               await sb.from('followers').insert({
+                  follower_id: user.id,
+                  following_id: targetId
+               });
+               if (btn) {
+                  btn.textContent = 'FOLLOWING';
+                  btn.style.background = 'var(--cyan)';
+                  btn.style.color = 'var(--bg1)';
+               }
+               toast('Following ' + (targetName || 'Cadet'), 'var(--cyan)');
+               addXP(5);
             }
-            renderNetwork();
-         } catch (e) { toast('Comms error.', 'var(--orange)'); }
+         } catch (e) {
+            toast('Follow error', 'var(--orange)');
+         }
       }
 
       // Fix 10: Weekly Debrief
@@ -2554,6 +3304,7 @@ Colors: cyan, green, purple, orange, grey`;
       let studyInterval = null;
       let studySeconds = 0;
       let studyActive = false;
+      let studyTotalSeconds = 1500;
 
       function showStudyTimer() {
          const modal = document.createElement('div');
@@ -2591,6 +3342,7 @@ Colors: cyan, green, purple, orange, grey`;
 
       function setTimerDuration(sec) {
          studySeconds = sec;
+         studyTotalSeconds = sec;
          updateTimerDisplay();
       }
 
@@ -2601,8 +3353,9 @@ Colors: cyan, green, purple, orange, grey`;
          if (d) d.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 
          const progress = document.getElementById('timer-progress');
-         if (progress) {
-            // total logic - we need a totalSeconds ref
+         if (progress && studyTotalSeconds > 0) {
+            const pct = (studySeconds / studyTotalSeconds) * 880;
+            progress.style.strokeDashoffset = 880 - pct;
          }
       }
 
@@ -2637,7 +3390,22 @@ Colors: cyan, green, purple, orange, grey`;
       }
 
       function finishStudySession() {
-         toast('MISSION SUCCESS. RADAR UPDATED.', 'var(--green)');
+         const hoursStudied = studyTotalSeconds / 3600;
+         dailyLog.studyHours = (dailyLog.studyHours || 0) + hoursStudied;
+         dailyLog.date = new Date().toDateString();
+         save();
+         if (sb && user?.id) {
+            sb.from('daily_logs').upsert({
+               user_id: user.id,
+               date: new Date().toDateString(),
+               mood: dailyLog.mood,
+               study_hours: dailyLog.studyHours,
+               workout: dailyLog.workout || false,
+               sleep_on_time: dailyLog.sleepOnTime || false,
+               battery_score: getBattery()
+            }).catch(() => { });
+         }
+         toast('MISSION SUCCESS. +50 XP', 'var(--green)');
          confetti();
          addXP(50);
          closeStudyTimer();
@@ -2699,12 +3467,13 @@ Colors: cyan, green, purple, orange, grey`;
          if (!targetId || !goal) return toast('Target and Goal required.', 'var(--orange)');
 
          try {
-            await sb.from('pacts').insert({
+            await sb.from('accountability_pacts').insert({
                user1_id: user.id,
                user2_id: targetId,
-               goal: goal,
+               user1_name: user.username || user.name,
+               title: goal,
                streak: 0,
-               last_checkin_user1: new Date().toISOString()
+               last_logged: new Date().toISOString().split('T')[0]
             });
             toast('Pact Initiated. Awaiting synchronization.', 'var(--purple)');
             document.getElementById('pact-modal').remove();
@@ -2713,17 +3482,69 @@ Colors: cyan, green, purple, orange, grey`;
       }
 
       // Initial setup
-      window.onload = () => {
-         // Data integrity check: if user is logged in, sync navigation
-         if (user && user.id) {
-            // Already handled in bootSequence after animation,
-            // but if we are here we should ensure active screen is consistent
-            if (currentScreen === 'boot-screen') {
-               // Let bootSequence finish its thing
+      window.onload = async () => {
+         if (!sb) return;
+         try {
+            const { data: { session } } = await sb.auth.getSession();
+            if (session && session.user) {
+               const { data: profile } = await sb.from('users_public').select('*').eq('id', session.user.id).single();
+               user = {
+                  ...session.user,
+                  ...(profile || {}),
+                  name: profile?.name || session.user.user_metadata?.name || session.user.email.split('@')[0]
+               };
+               save();
             }
+         } catch (e) {
+            console.log('Session check failed:', e);
          }
       };
    </script>
 </body>
+
+<!--
+DEPLOYMENT FILES NEEDED:
+
+1. Create vercel.json in same folder:
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}
+
+2. DEPLOY STEPS:
+   a) Go to github.com
+   b) New repo → name: rage-os → private
+   c) Upload index.html + vercel.json
+   d) Go to vercel.com
+   e) Import GitHub repo
+   f) Click Deploy
+   g) Done — app is live
+
+3. CUSTOM DOMAIN (optional):
+   a) Buy domain on namecheap.com
+      suggested: rage-app.in (~₹800/yr)
+   b) In Vercel: Settings → Domains
+   c) Add your domain
+   d) Follow DNS setup instructions
+   e) Done in 10 minutes
+
+4. SUPABASE REDIRECT URL:
+   After deploying update Supabase:
+   Authentication → URL Configuration
+   Site URL: https://your-app.vercel.app
+   Redirect URLs: 
+     https://your-app.vercel.app/**
+-->
 
 </html>
