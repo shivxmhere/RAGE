@@ -1342,58 +1342,115 @@
       }
 
       async function callGemini(userMsg) {
-         const profile = JSON.parse(localStorage.getItem('rage_user') || '{}');
-         const tasksData = JSON.parse(localStorage.getItem('rage_tasks') || '[]');
-         const goalsData = JSON.parse(localStorage.getItem('rage_goals') || '[]');
-         const history = JSON.parse(localStorage.getItem('rage_chat') || '[]');
-         const daily = JSON.parse(localStorage.getItem('rage_daily') || '{}');
+         const GEMINI_URL =
+            'https://generativelanguage' +
+            '.googleapis.com/v1beta/models/' +
+            'gemini-1.5-flash:generateContent' +
+            '?key=' + GEMINI_KEY;
 
-         const systemContext = `
-You are RAGE — Rise. Act. Grow. Excel.
-You are the personal AI life coach and best friend of ${profile.name || 'Shivam'}, a distance-learning student who studies from home.
+         const today = new Date().toDateString();
+         const doneTasks = Array.isArray(tasks)
+            ? tasks.filter(t =>
+               t.done && t.date === today
+            ).length : 0;
+         const totalTasks = Array.isArray(tasks)
+            ? tasks.filter(t =>
+               t.date === today
+            ).length : 0;
+         const moodMap = [
+            'low energy', 'neutral', 'good',
+            'on fire', 'beast mode'
+         ];
+         const moodText = dailyLog?.mood != null
+            ? moodMap[dailyLog.mood]
+            : 'not logged';
 
-You speak like a brilliant older brother who has seen the world and genuinely cares whether ${profile.name || 'Shivam'} succeeds or not.
-Sometimes call him "Cadet" but also speak naturally. Be direct, warm, honest, and tough when needed. Never be generic.
-
-CURRENT DATA YOU KNOW:
-Name: ${profile.name || 'Shivam'}
-Level: ${profile.level || 1}
-XP: ${profile.xp || 0}
-Streak: ${profile.streak || 0} days
-Subjects: ${(profile.subjects || []).join(', ')}
-Study target: ${profile.studyTarget || 4} hours/day
-Wake time: ${profile.wakeTime || '06:00'}
-Sleep time: ${profile.sleepTime || '23:00'}
-Today's mood: ${daily.mood !== undefined ? ['😴 Low energy', '😐 Neutral', '😊 Good', '🔥 On fire', '⚡ Beast mode'][daily.mood] : 'Not logged yet'}
-Study hours today: ${daily.studyHours || 0}h
-Tasks done today: ${tasksData.filter(t => t.done && t.date === new Date().toDateString()).length}
-Active goals: ${goalsData.map(g => g.title).join(', ')}
-
-CONVERSATION HISTORY (last 10 messages):
-${history.slice(-10).map(m => m.role + ': ' + m.content).join('\n')}
-
-Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to his actual data above. Never say generic things.
-`;
+         const fullPrompt =
+            'You are RAGE — personal AI life ' +
+            'coach. Speak like a brilliant older ' +
+            'brother. Direct, warm, tough. ' +
+            'Never generic. Max 3 sentences ' +
+            'unless user asks for a plan.\n\n' +
+            'USER DATA:\n' +
+            'Name: ' + (user?.name || 'Cadet') +
+            '\nLevel: ' + getLevel().lvl +
+            '\nXP: ' + (user?.xp || 0) +
+            '\nStreak: ' + (user?.streak || 0) +
+            ' days\nTasks today: ' +
+            doneTasks + '/' + totalTasks +
+            '\nMood: ' + moodText +
+            '\nBattery: ' + getBattery() + '%' +
+            '\nSubjects: ' +
+            ((user?.subjects || []).join(', ')
+               || 'none set') +
+            '\nGoals: ' +
+            (Array.isArray(goals)
+               ? goals.map(g => g.title).join(', ')
+               : 'none') +
+            '\n\nRecent chat:\n' +
+            (Array.isArray(chatHistory)
+               ? chatHistory.slice(-4).map(m =>
+                  (m.role === 'user' ? 'User' :
+                     'RAGE') + ': ' + m.content
+               ).join('\n')
+               : '') +
+            '\n\nUser message: ' + userMsg;
 
          try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+            const res = await fetch(GEMINI_URL, {
                method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
+               headers: {
+                  'Content-Type': 'application/json'
+               },
                body: JSON.stringify({
                   contents: [{
-                     parts: [{ text: systemContext + '\n\nUser: ' + userMsg }]
+                     parts: [{ text: fullPrompt }]
                   }],
                   generationConfig: {
-                     temperature: 0.8,
+                     temperature: 0.85,
                      maxOutputTokens: 300
                   }
                })
             });
+
+            if (!res.ok) {
+               const errData = await res.json()
+                  .catch(() => ({}));
+               console.error(
+                  'Gemini HTTP error:',
+                  res.status, errData
+               );
+               if (res.status === 400)
+                  return 'Bad request. ' +
+                     'Try rephrasing your message.';
+               if (res.status === 403)
+                  return 'API key error. ' +
+                     'Check GEMINI_KEY in code.';
+               if (res.status === 429)
+                  return 'Rate limit hit. ' +
+                     'Wait 30 seconds and retry.';
+               return 'API error ' + res.status +
+                  '. Try again.';
+            }
+
             const data = await res.json();
-            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Signal lost. Try again, Cadet.';
+            const text =
+               data?.candidates?.[0]
+                  ?.content?.parts?.[0]?.text;
+
+            if (!text) {
+               console.error(
+                  'Empty Gemini response:', data
+               );
+               return 'No response received. ' +
+                  'Try again.';
+            }
+            return text.trim();
          } catch (e) {
-            console.error(e);
-            return 'Signal lost. Try again, Cadet.';
+            console.error(
+               'Gemini network error:', e
+            );
+            return 'Network error: ' + e.message;
          }
       }
 
@@ -1495,44 +1552,143 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
 
       // Add 1 — User Search
       async function searchCadets(query) {
-         const container = document.getElementById('search-results');
+         const container = document
+            .getElementById('search-results');
          if (!container) return;
-         if (!query || query.length < 2) {
+
+         const clean = (query || '')
+            .replace('@', '').trim();
+
+         if (clean.length < 1) {
             container.innerHTML = '';
             return;
          }
-         const { data } = await sb
-            .from('users_public')
-            .select('*')
-            .or(`username.ilike.%${query}%,name.ilike.%${query}%`)
-            .neq('id', user?.id || '')
-            .limit(8);
 
-         if (!data?.length) {
-            container.innerHTML = `
-            <div style="font-size:12px;color:var(--muted);text-align:center;padding:10px;">
-              No cadets found on frequency.
-            </div>`;
-            return;
+         container.innerHTML =
+            '<div style="font-size:11px;' +
+            'color:var(--muted);padding:10px;">' +
+            'Scanning frequencies...</div>';
+
+         try {
+            const { data, error } = await sb
+               .from('users_public')
+               .select(
+                  'id,name,username,level,' +
+                  'streak,avatar_url'
+               )
+               .or(
+                  'username.ilike.%' + clean +
+                  '%,name.ilike.%' + clean + '%'
+               )
+               .limit(10);
+
+            if (error) {
+               console.error('Search error:', error);
+               container.innerHTML =
+                  '<div style="font-size:11px;' +
+                  'color:var(--orange);' +
+                  'padding:10px;">Search failed: ' +
+                  error.message + '</div>';
+               return;
+            }
+
+            const results = (data || [])
+               .filter(u => u.id !== user?.id);
+
+            if (!results.length) {
+               container.innerHTML =
+                  '<div style="font-size:12px;' +
+                  'color:var(--muted);' +
+                  'text-align:center;' +
+                  'padding:20px;">No cadets ' +
+                  'found for "' + clean +
+                  '"</div>';
+               return;
+            }
+
+            container.innerHTML =
+               results.map(u => `
+      <div class="card"
+        style="padding:12px;display:flex;
+        align-items:center;gap:12px;
+        margin-bottom:8px;">
+        <div style="width:44px;height:44px;
+          border-radius:50%;
+          background:var(--purple);
+          display:flex;align-items:center;
+          justify-content:center;
+          font-size:20px;font-weight:700;
+          color:white;flex-shrink:0;
+          overflow:hidden;">
+          ${u.avatar_url
+                     ? '<img src="' +
+                     u.avatar_url + '"' +
+                     ' style="width:100%;' +
+                     'height:100%;' +
+                     'object-fit:cover;">'
+                     : (u.name || '?')[0]
+                        .toUpperCase()}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:
+            var(--font-t);font-weight:700;
+            font-size:14px;">
+            ${u.name || 'Unknown'}
+          </div>
+          <div style="font-size:11px;
+            color:var(--muted);">
+            @${u.username || 'unknown'}
+            &bull; LVL ${u.level || 1}
+            &bull; 🔥 ${u.streak || 0}d
+          </div>
+        </div>
+        <button id="fbtn-${u.id}"
+          onclick="toggleFollow(
+            '${u.id}',
+            '${(u.name || 'Cadet')
+                     .replace(/'/g, '')}',
+            this)"
+          class="btn-outline"
+          style="padding:6px 14px;
+          font-size:10px;width:auto;
+          flex-shrink:0;">
+          FOLLOW
+        </button>
+      </div>`
+               ).join('');
+
+            if (user?.id && results.length) {
+               const ids = results.map(u => u.id);
+               const { data: following } = await sb
+                  .from('followers')
+                  .select('following_id')
+                  .eq('follower_id', user.id)
+                  .in('following_id', ids);
+               const fs = new Set(
+                  (following || [])
+                     .map(f => f.following_id)
+               );
+               results.forEach(u => {
+                  const btn = document
+                     .getElementById('fbtn-' + u.id);
+                  if (btn && fs.has(u.id)) {
+                     btn.textContent = 'FOLLOWING';
+                     btn.style.background =
+                        'var(--cyan)';
+                     btn.style.color = 'var(--bg1)';
+                     btn.style.borderColor =
+                        'var(--cyan)';
+                  }
+               });
+            }
+         } catch (e) {
+            console.error('Search crash:', e);
+            container.innerHTML =
+               '<div style="font-size:11px;' +
+               'color:var(--orange);padding:10px;">' +
+               'Search error: ' +
+               e.message + '</div>';
          }
-
-         container.innerHTML = data.map(u => `
-         <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-           <div style="width:40px;height:40px;border-radius:50%;background:var(--card2);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
-             ${u.name?.[0]?.toUpperCase() || '?'}
-           </div>
-           <div style="flex:1;">
-             <div style="font-family:var(--font-t);font-weight:700;font-size:14px;">${u.name}</div>
-             <div style="font-size:11px;color:var(--muted);">
-               @${u.username || 'unknown'} • LVL ${u.level || 1} • 🔥${u.streak || 0} days
-             </div>
-           </div>
-           <button id="follow-btn-${u.id}" onclick="toggleFollow('${u.id}','${u.name}',this)" class="btn-outline" style="padding:6px 12px;font-size:10px;width:auto;">
-             FOLLOW
-           </button>
-         </div>`).join('');
-
-         checkFollowStatuses(data);
       }
 
       async function checkFollowStatuses(users) {
@@ -1575,9 +1731,22 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          save();
          checkAchievements();
 
-         if (user.streak === 7) { toast('🔥 7-Day Streak! WARRIOR MODE', 'var(--orange)'); confetti(); }
-         else if (user.streak === 14) { toast('⚔️ 14-Day Streak! IRON CADET', 'var(--cyan)'); confetti(); }
-         else if (user.streak === 30) { toast('👑 30-Day Streak! LEGEND', 'var(--cyan)'); confetti(); confetti(); }
+         if (user.streak === 7) {
+            toast('🔥 7-Day Streak! WARRIOR MODE', 'var(--orange)');
+            confetti();
+            addNotification('🔥', 'Streak Milestone', '7 Days - Warrior Mode Activated', 'var(--orange)');
+         }
+         else if (user.streak === 14) {
+            toast('⚔️ 14-Day Streak! IRON CADET', 'var(--cyan)');
+            confetti();
+            addNotification('⚔️', 'Streak Milestone', '14 Days - Iron Cadet Status', 'var(--cyan)');
+         }
+         else if (user.streak === 30) {
+            toast('👑 30-Day Streak! LEGEND', 'var(--cyan)');
+            confetti();
+            confetti();
+            addNotification('👑', 'Streak Milestone', '30 Days - Legend Status', 'var(--cyan)');
+         }
       }
 
       // Add 7 — Password Reset
@@ -1663,6 +1832,7 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          document.body.appendChild(modal);
          confetti();
          haptic('success');
+         addNotification('🏆', 'LEVEL UP', 'Rank ' + lvl + ' achieved.', 'var(--cyan)');
       }
 
       const BADGES = [
@@ -1711,6 +1881,7 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          document.body.appendChild(t);
          confetti();
          haptic('success');
+         addNotification(badge.icon, 'BADGE UNLOCKED', badge.name, 'var(--purple)');
          setTimeout(() => t.remove(), 5000);
       }
 
@@ -1869,48 +2040,149 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
          }
       }
       async function doSignup() {
-         if (!sb) return toast('System not ready', 'var(--orange)');
-         const name = document.getElementById('signup-name').value.trim();
-         const uname = document.getElementById('signup-user').value.trim();
-         const email = document.getElementById('signup-email').value.trim();
-         const pw = document.getElementById('signup-pw').value;
-         const cpw = document.getElementById('signup-cpw').value;
-         if (!name || !uname || !email || !pw) return toast('Fill all fields', 'var(--orange)');
-         if (pw !== cpw) return toast('Passwords do not match', 'var(--orange)');
-         if (pw.length < 6) return toast('Password min 6 chars', 'var(--orange)');
-         toast('Enlisting...', 'var(--muted)');
+         if (!sb) return toast(
+            'System not ready. Refresh page.',
+            'var(--orange)'
+         );
+
+         const name = document
+            .getElementById('signup-name')
+            .value.trim();
+         const uname = document
+            .getElementById('signup-user')
+            .value.trim()
+            .replace('@', '')
+            .toLowerCase();
+         const email = document
+            .getElementById('signup-email')
+            .value.trim()
+            .toLowerCase();
+         const pw = document
+            .getElementById('signup-pw').value;
+         const cpw = document
+            .getElementById('signup-cpw').value;
+
+         if (!name || !uname || !email || !pw)
+            return toast(
+               'Fill all fields',
+               'var(--orange)'
+            );
+         if (pw !== cpw)
+            return toast(
+               'Passwords do not match',
+               'var(--orange)'
+            );
+         if (pw.length < 6)
+            return toast(
+               'Password needs 6+ characters',
+               'var(--orange)'
+            );
+         if (!/^[a-z0-9_]+$/.test(uname))
+            return toast(
+               'Username: letters numbers _ only',
+               'var(--orange)'
+            );
+
+         toast('Checking username...',
+            'var(--muted)');
+
          try {
-            const { data, error } = await sb.auth.signUp({
-               email, password: pw,
-               options: { data: { name, username: uname } }
-            });
-            if (error) return toast(error.message, 'var(--orange)');
-            await sb.from('users_public').upsert({
-               id: data.user.id,
-               name,
-               username: uname,
-               xp: 0,
-               streak: 0,
-               level: 1,
-               subjects: [],
-               study_target: 4,
-               wake_time: '06:00',
-               sleep_time: '23:00',
-               archetype: 'THE FOCUSED BUILDER',
-               created_at: new Date().toISOString()
-            });
+            const { data: taken } = await sb
+               .from('users_public')
+               .select('id')
+               .eq('username', uname)
+               .maybeSingle();
+            if (taken) return toast(
+               '@' + uname +
+               ' is taken. Choose another.',
+               'var(--orange)'
+            );
+         } catch (e) {
+            console.log('username check:', e);
+         }
+
+         toast('Enlisting...', 'var(--muted)');
+
+         try {
+            const { data, error } =
+               await sb.auth.signUp({
+                  email,
+                  password: pw,
+                  options: {
+                     data: { name, username: uname }
+                  }
+               });
+
+            if (error) {
+               if (error.message
+                  .toLowerCase()
+                  .includes('already')) {
+                  return toast(
+                     'Email already registered. ' +
+                     'Use login instead.',
+                     'var(--orange)'
+                  );
+               }
+               return toast(
+                  error.message,
+                  'var(--orange)'
+               );
+            }
+
+            if (!data?.user) return toast(
+               'Signup failed. Try again.',
+               'var(--orange)'
+            );
+
+            if (data.user && !data.session) {
+               toast(
+                  'Confirm your email then login!',
+                  'var(--cyan)'
+               );
+               showScreen('login-screen');
+               return;
+            }
+
+            try {
+               await sb.from('users_public')
+                  .upsert({
+                     id: data.user.id,
+                     name,
+                     username: uname,
+                     xp: 0,
+                     streak: 0,
+                     level: 1,
+                     subjects: [],
+                     study_target: 4,
+                     wake_time: '06:00',
+                     sleep_time: '23:00',
+                     archetype: 'THE FOCUSED BUILDER'
+                  });
+            } catch (dbErr) {
+               console.log('profile error:', dbErr);
+            }
+
             user = {
                ...data.user,
                name, username: uname,
                xp: 0, streak: 0, level: 1,
-               subjects: []
+               subjects: [],
+               studyTarget: 4,
+               wakeTime: '06:00',
+               sleepTime: '23:00'
             };
             save();
-            toast(`Welcome to RAGE OS, ${name}!`, 'var(--cyan)');
+            toast(
+               'Welcome to RAGE OS, ' + name + '!',
+               'var(--cyan)'
+            );
             initOnboarding();
             showScreen('onboarding-screen');
          } catch (e) {
-            toast('Signup failed: ' + e.message, 'var(--orange)');
+            toast(
+               'Signup error: ' + e.message,
+               'var(--orange)'
+            );
          }
       }
       async function doGoogleLogin() {
@@ -2024,8 +2296,15 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
 <div style="display:flex;justify-content:center;gap:12px;" id="mood-btns">
 ${['😴', '😐', '😊', '🔥', '⚡'].map((m, i) => `<button onclick="setMood(${i})" style="font-size:28px;background:none;padding:6px 10px;border-radius:var(--r-sm);border:2px solid ${dailyLog.mood === i ? 'var(--cyan)' : 'transparent'};${dailyLog.mood === i ? 'box-shadow:0 0 12px var(--glow-c);transform:scale(1.15);' : ''}">${m}</button>`).join('')}
 </div>
-<div id="mood-quote" style="text-align:center;min-height:20px;margin-top:8px;">
-${dailyLog.mood !== undefined ? '<span style="font-size:12px;color:var(--cyan);font-style:italic;">Mood logged ✓</span>' : ''}
+<div id="mood-quote"
+  style="margin-top:12px;
+  min-height:28px;padding:0 4px;
+  transition:all 0.3s ease;">
+  ${dailyLog.mood != null
+    ? '<div style="font-size:12px;' +
+      'color:var(--muted);">' +
+      'Mood logged ✓</div>'
+    : ''}
 </div>
 </div>
 <!-- Daily Log -->
@@ -2093,49 +2372,133 @@ ${t.done ? '<span class="tag tag-green" style="font-size:9px">COMPLETE</span>' :
          updateClock(); if (!window._clockInt) { window._clockInt = setInterval(updateClock, 1000); }
       }
 
-      function setMood(i) {
-         dailyLog.mood = i;
+      async function setMood(idx) {
+         dailyLog.mood = idx;
          dailyLog.date = new Date().toDateString();
          save();
-         updateStreak();
+
          if (sb && user?.id) {
             sb.from('daily_logs').upsert({
                user_id: user.id,
                date: new Date().toDateString(),
-               mood: i,
-               study_hours: dailyLog.studyHours || 0,
+               mood: idx,
+               study_hours:
+                  dailyLog.studyHours || 0,
                workout: dailyLog.workout || false,
-               sleep_on_time: dailyLog.sleepOnTime || false,
+               sleep_on_time:
+                  dailyLog.sleepOnTime || false,
                battery_score: getBattery()
-            }).catch(e => console.log('Log sync error:', e));
+            }).catch(e =>
+               console.log('mood sync error:', e)
+            );
          }
-         // Highlight selected mood
-         document.querySelectorAll('#mood-btns button').forEach((btn, idx) => {
-            btn.style.border = idx === i ? '2px solid var(--cyan)' : '2px solid transparent';
-            btn.style.boxShadow = idx === i ? '0 0 12px var(--glow-c)' : 'none';
-            btn.style.transform = idx === i ? 'scale(1.15)' : 'scale(1)';
+
+         const btns = document
+            .querySelectorAll('#mood-btns button');
+         btns.forEach((btn, i) => {
+            btn.style.border = i === idx
+               ? '2px solid var(--cyan)'
+               : '2px solid transparent';
+            btn.style.transform = i === idx
+               ? 'scale(1.2)' : 'scale(1)';
+            btn.style.boxShadow = i === idx
+               ? '0 0 12px var(--glow-c)' : 'none';
          });
-         // Show mood quote
-         const quoteEl = document.getElementById('mood-quote');
-         if (quoteEl) {
-            const fallbacks = [
-               'Every rep counts. Every page matters. Keep moving.',
-               'Discipline is choosing between what you want now and what you want most.',
-               'The grind doesn\'t stop. Neither do you.',
-               'Small steps daily. Massive results eventually.',
-               'You\'re building something most people can\'t even imagine.'
+
+         const quoteBox = document
+            .getElementById('mood-quote');
+         if (!quoteBox) return;
+
+         quoteBox.innerHTML =
+            '<div style="font-size:11px;' +
+            'color:var(--cyan);">' +
+            '⏳ RAGE reading your energy...' +
+            '</div>';
+
+         const fallbacks = [
+            'Rest is part of the mission. Recover strategically.',
+            'Neutral is a launchpad. Pick one thing and start.',
+            'Good energy. Channel it into your hardest task now.',
+            'You are on fire. Attack the mission. Leave nothing.',
+            'Beast mode activated. Nothing stops you today.'
+         ];
+
+         try {
+            const moodNames = [
+               'low energy and tired',
+               'neutral and okay',
+               'good and motivated',
+               'on fire and energized',
+               'in absolute beast mode'
             ];
-            quoteEl.innerHTML = '<span style="color:var(--muted);font-size:11px;">Loading wisdom...</span>';
-            callGemini(`Give me a single motivational sentence for someone feeling ${['low energy', 'neutral', 'good', 'on fire', 'beast mode'][i]}. Max 15 words. No quotes.`)
-               .then(quote => {
-                  if (quote && !quote.includes('Signal lost')) {
-                     quoteEl.innerHTML = `<span style="font-size:12px;color:var(--cyan);font-style:italic;">"${quote}"</span>`;
-                  } else {
-                     quoteEl.innerHTML = `<span style="font-size:12px;color:var(--cyan);font-style:italic;">"${fallbacks[i]}"</span>`;
-                  }
-               }).catch(() => {
-                  quoteEl.innerHTML = `<span style="font-size:12px;color:var(--cyan);font-style:italic;">"${fallbacks[i]}"</span>`;
-               });
+            const res = await fetch(
+               'https://generativelanguage' +
+               '.googleapis.com/v1beta/models/' +
+               'gemini-1.5-flash:generateContent' +
+               '?key=' + GEMINI_KEY,
+               {
+                  method: 'POST',
+                  headers: {
+                     'Content-Type':
+                        'application/json'
+                  },
+                  body: JSON.stringify({
+                     contents: [{
+                        parts: [{
+                           text:
+                              'You are RAGE, a tough ' +
+                              'motivational AI coach. ' +
+                              'The user ' +
+                              (user?.name || 'Cadet') +
+                              ' is feeling ' +
+                              moodNames[idx] + ' today.' +
+                              ' Streak: ' +
+                              (user?.streak || 0) +
+                              ' days. Write ONE unique ' +
+                              'motivational line. ' +
+                              'Under 12 words. ' +
+                              'No punctuation at start. ' +
+                              'Direct and powerful.'
+                        }]
+                     }],
+                     generationConfig: {
+                        temperature: 1.0,
+                        maxOutputTokens: 40
+                     }
+                  })
+               }
+            );
+
+            if (!res.ok) throw new Error(
+               'status ' + res.status
+            );
+
+            const data = await res.json();
+            const quote =
+               data?.candidates?.[0]
+                  ?.content?.parts?.[0]?.text
+                  ?.trim() || fallbacks[idx];
+
+            quoteBox.innerHTML =
+               '<div style="font-size:12px;' +
+               'color:var(--text);' +
+               'line-height:1.6;' +
+               'font-family:var(--font-t);' +
+               'font-weight:600;' +
+               'border-left:2px solid var(--cyan);' +
+               'padding-left:10px;' +
+               'animation:fadeUp 0.4s ease;">' +
+               quote + '</div>';
+         } catch (e) {
+            quoteBox.innerHTML =
+               '<div style="font-size:12px;' +
+               'color:var(--text);' +
+               'line-height:1.6;' +
+               'font-family:var(--font-t);' +
+               'font-weight:600;' +
+               'border-left:2px solid var(--cyan);' +
+               'padding-left:10px;">' +
+               fallbacks[idx] + '</div>';
          }
       }
       function addTask() {
@@ -2156,6 +2519,7 @@ ${t.done ? '<span class="tag tag-green" style="font-size:9px">COMPLETE</span>' :
                updateStreak();
                confetti();
                haptic('success');
+               addNotification('✅', 'Mission Complete', task.title, 'var(--green)');
             } else {
                haptic('medium');
             }
@@ -2467,7 +2831,7 @@ Colors: cyan, green, purple, orange, grey`;
         
         <div style="display:flex;justify-content:space-around;margin-bottom:20px;">
             <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
-                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">${dailyLog.studyHours ? dailyLog.studyHours.toFixed(1) + 'h' : '0h'}</div>
+                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">${(dailyLog.studyHours || 0)}h</div>
                 <div style="font-size:9px;color:var(--muted);">STUDY TODAY</div>
             </div>
             <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
@@ -2475,8 +2839,8 @@ Colors: cyan, green, purple, orange, grey`;
                 <div style="font-size:9px;color:var(--muted);">BATTERY</div>
             </div>
             <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
-                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">${user?.streak || 0}d</div>
-                <div style="font-size:9px;color:var(--muted);">STREAK</div>
+                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">${dailyLog.studyHours ? (dailyLog.studyHours/7).toFixed(1)+'h' : 'Log daily'}</div>
+                <div style="font-size:9px;color:var(--muted);">AVG</div>
             </div>
         </div>
         
@@ -2717,7 +3081,7 @@ Colors: cyan, green, purple, orange, grey`;
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:30px;">
       <div class="card" style="padding:15px;">
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">STUDY HOURS</div>
-          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${Math.round((dailyLog.studyHours || 0) * 10) / 10} h</div>
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${(dailyLog.studyHours || 0).toFixed(1)}h</div>
       </div>
       <div class="card" style="padding:15px;">
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">DAY STREAK</div>
@@ -2725,7 +3089,7 @@ Colors: cyan, green, purple, orange, grey`;
       </div>
       <div class="card" style="padding:15px;">
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">TASKS CRUSHED</div>
-          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${tasks.filter(t => t.done).length} ⚔️</div>
+          <div style="font-family:var(--font-d);font-size:1.2rem;color:var(--text);">${Array.isArray(tasks) ? tasks.filter(t => t.done).length : 0} ⚔️</div>
       </div>
       <div class="card" style="padding:15px;">
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">BATTERY LEVEL</div>
@@ -2896,41 +3260,82 @@ Colors: cyan, green, purple, orange, grey`;
       }
 
       function renderNotifications() {
-         const s = document.getElementById('notifications-screen');
-         let notifs = [];
-         try { notifs = JSON.parse(localStorage.getItem('rage_notifications') || '[]'); } catch (e) { }
-         // Mark all as read
-         notifs = notifs.map(n => ({ ...n, read: true }));
-         localStorage.setItem('rage_notifications', JSON.stringify(notifs));
+         const s = document.getElementById(
+            'notifications-screen');
+         const notifs = JSON.parse(
+            localStorage.getItem('rage_notifs')
+            || '[]');
+
+         notifs.forEach(n => n.read = true);
+         localStorage.setItem('rage_notifs',
+            JSON.stringify(notifs));
 
          s.innerHTML = `
-    <div style="padding:16px 20px;" class="stagger">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">NOTIFICATIONS</h1>
-            <span style="font-size:11px;color:var(--cyan);cursor:pointer;" onclick="clearAllNotifications()">Clear All</span>
-        </div>
-        
-        <div style="display:flex;flex-direction:column;gap:10px;">
-            ${notifs.length > 0 ? notifs.slice().reverse().map(n => `
-                <div class="card" style="padding:15px;display:flex;gap:15px;border-left:3px solid ${n.color || 'var(--cyan)'}; ${!n.read ? 'background:rgba(0,245,255,0.03);' : ''}">
-                    <div style="font-size:20px;">${n.icon || '📡'}</div>
-                    <div style="flex:1;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                            <span style="font-family:var(--font-t);font-weight:700;font-size:13px;">${n.title}</span>
-                            <span style="font-size:9px;color:var(--muted);">${getTimeAgo(n.timestamp)}</span>
-                        </div>
-                        <div style="font-size:11px;color:var(--muted);line-height:1.4;">${n.text}</div>
-                    </div>
-                </div>
-            `).join('') : `
-            <div class="card" style="text-align:center;padding:40px;color:var(--muted);">
-                <div style="font-size:30px;margin-bottom:10px;">📡</div>
-                <div style="font-size:12px;">All quiet on the frequency, Cadet.</div>
-            </div>
-            `}
-        </div>
+  <div style="padding:16px 20px;"
+    class="stagger">
+    <div style="display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:20px;">
+      <h1 style="font-family:
+        var(--font-d);font-size:1.5rem;
+        color:var(--text);">
+        NOTIFICATIONS
+      </h1>
+      <span style="font-size:11px;
+        color:var(--cyan);cursor:pointer;"
+        onclick="localStorage.removeItem(
+          'rage_notifs');
+          renderNotifications();">
+        Clear All
+      </span>
     </div>
-    `;
+    <div style="display:flex;
+      flex-direction:column;gap:10px;">
+      ${notifs.length ? notifs.map(n => `
+      <div class="card"
+        style="padding:15px;display:flex;
+        gap:15px;border-left:3px solid
+        ${n.color || 'var(--cyan)'};">
+        <div style="font-size:20px;">
+          ${n.icon || '🔔'}
+        </div>
+        <div style="flex:1;">
+          <div style="display:flex;
+            justify-content:space-between;
+            margin-bottom:4px;">
+            <span style="font-family:
+              var(--font-t);
+              font-weight:700;
+              font-size:13px;">
+              ${n.title}
+            </span>
+            <span style="font-size:9px;
+              color:var(--muted);">
+              ${getTimeAgo(n.time)}
+            </span>
+          </div>
+          <div style="font-size:11px;
+            color:var(--muted);
+            line-height:1.4;">
+            ${n.text}
+          </div>
+        </div>
+      </div>`).join('') :
+               `<div class="card"
+        style="text-align:center;
+        padding:40px;">
+        <div style="font-size:40px;
+          margin-bottom:12px;">🔔</div>
+        <div style="font-size:13px;
+          color:var(--muted);">
+          No transmissions yet.
+          Complete missions to earn
+          notifications.
+        </div>
+      </div>`}
+    </div>
+  </div>`;
       }
 
       async function renderChallenges() {
@@ -3666,28 +4071,34 @@ Colors: cyan, green, purple, orange, grey`;
       }
 
       // ─── NF4: Notification System ───
-      function addNotification(title, text, icon = '📡', color = 'var(--cyan)') {
-         let notifs = [];
-         try { notifs = JSON.parse(localStorage.getItem('rage_notifications') || '[]'); } catch (e) { }
-         notifs.push({ title, text, icon, color, timestamp: Date.now(), read: false });
-         if (notifs.length > 50) notifs = notifs.slice(-50);
-         localStorage.setItem('rage_notifications', JSON.stringify(notifs));
+      function addNotification(icon, title, text, color) {
+         const notifs = JSON.parse(
+            localStorage.getItem('rage_notifs')
+            || '[]');
+         notifs.unshift({
+            id: uid(),
+            icon, title, text,
+            color: color || 'var(--cyan)',
+            time: Date.now(),
+            read: false
+         });
+         localStorage.setItem('rage_notifs',
+            JSON.stringify(notifs.slice(0, 50)));
       }
 
-      function getTimeAgo(ts) {
-         if (!ts) return '';
-         const diff = Date.now() - ts;
+      function getTimeAgo(timestamp) {
+         const diff = Date.now() - timestamp;
          const mins = Math.floor(diff / 60000);
+         const hrs = Math.floor(diff / 3600000);
+         const days = Math.floor(diff / 86400000);
          if (mins < 1) return 'just now';
          if (mins < 60) return mins + 'm ago';
-         const hrs = Math.floor(mins / 60);
          if (hrs < 24) return hrs + 'h ago';
-         const days = Math.floor(hrs / 24);
          return days + 'd ago';
       }
 
       function clearAllNotifications() {
-         localStorage.setItem('rage_notifications', '[]');
+         localStorage.setItem('rage_notifs', '[]');
          renderNotifications();
          toast('All notifications cleared', 'var(--muted)');
       }
@@ -3700,7 +4111,7 @@ Colors: cyan, green, purple, orange, grey`;
          save();
          if (hrs > 0) {
             addXP(Math.round(hrs * 10));
-            addNotification('Study Logged', `${hrs}h of study recorded. Keep grinding!`, '📚', 'var(--cyan)');
+            addNotification('📚', 'Study Logged', `${hrs}h of study recorded. Keep grinding!`, 'var(--cyan)');
          }
          if (sb && user?.id) {
             sb.from('daily_logs').upsert({
@@ -3717,7 +4128,7 @@ Colors: cyan, green, purple, orange, grey`;
          save();
          if (dailyLog.workout) {
             addXP(15);
-            addNotification('Workout Done!', 'Great job staying active. +15 XP', '💪', 'var(--green)');
+            addNotification('💪', 'Workout Done!', 'Great job staying active. +15 XP', 'var(--green)');
             toast('Workout logged! +15 XP', 'var(--green)');
          }
          if (sb && user?.id) {
