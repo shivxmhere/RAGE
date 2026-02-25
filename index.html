@@ -388,7 +388,7 @@
       }
 
       #boot-screen {
-         display: flex;
+         /* Removed explicit display: flex to allow .screen classes to work */
          align-items: center;
          justify-content: center;
          flex-direction: column;
@@ -1369,21 +1369,40 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
       // ─── Navigation ───
       function showScreen(id) {
          try {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            // Aggressively hide all screens
+            document.querySelectorAll('.screen').forEach(s => {
+               s.classList.remove('active');
+               s.style.display = 'none';
+            });
+
             const s = document.getElementById(id);
             if (s) {
                s.classList.add('active');
+               s.style.display = 'flex';
                currentScreen = id;
+
+               // If entering app, hide boot screen forever
+               if (id !== 'boot-screen' && id !== 'login-screen' && id !== 'signup-screen' && id !== 'onboarding-screen') {
+                  const bs = document.getElementById('boot-screen');
+                  if (bs) {
+                     bs.style.display = 'none';
+                     bs.style.opacity = '0';
+                     bs.style.pointerEvents = 'none';
+                  }
+               }
             } else {
-               console.warn(`Screen ${id} not found. Reverting to login.`);
                const login = document.getElementById('login-screen');
-               if (login) login.classList.add('active');
+               if (login) {
+                  login.classList.add('active');
+                  login.style.display = 'flex';
+               }
             }
 
             const nav = document.getElementById('bottom-nav');
             if (nav) {
                const mainScreens = ['war-room', 'the-grid', 'rage-core', 'life-radar', 'the-vault', 'north-star', 'the-commander', 'the-network', 'comms-screen', 'notifications-screen', 'challenges-screen'];
-               nav.style.display = mainScreens.includes(id) ? 'flex' : 'none';
+               const shouldShow = mainScreens.includes(id);
+               nav.style.display = shouldShow ? 'flex' : 'none';
                document.querySelectorAll('.nav-btn').forEach(b => {
                   b.classList.toggle('active', b.dataset.screen === id);
                });
