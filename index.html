@@ -991,13 +991,27 @@
 
       // ─── State ───
       let currentScreen = 'boot-screen';
-      let user = JSON.parse(localStorage.getItem('rage_user') || 'null');
-      let tasks = JSON.parse(localStorage.getItem('rage_tasks') || '[]');
-      let goals = JSON.parse(localStorage.getItem('rage_goals') || '[]');
-      let chatHistory = JSON.parse(localStorage.getItem('rage_chat') || '[]');
-      let timetable = JSON.parse(localStorage.getItem('rage_timetable') || '[]');
-      let dailyLog = JSON.parse(localStorage.getItem('rage_daily') || '{}');
-      let habits = JSON.parse(localStorage.getItem('rage_habits') || '[]');
+      let user = null;
+      try { user = JSON.parse(localStorage.getItem('rage_user') || 'null'); } catch (e) { }
+
+      let tasks = [];
+      try { tasks = JSON.parse(localStorage.getItem('rage_tasks') || '[]'); if (!Array.isArray(tasks)) tasks = []; } catch (e) { }
+
+      let goals = [];
+      try { goals = JSON.parse(localStorage.getItem('rage_goals') || '[]'); if (!Array.isArray(goals)) goals = []; } catch (e) { }
+
+      let chatHistory = [];
+      try { chatHistory = JSON.parse(localStorage.getItem('rage_chat') || '[]'); if (!Array.isArray(chatHistory)) chatHistory = []; } catch (e) { }
+
+      let timetable = [];
+      try { timetable = JSON.parse(localStorage.getItem('rage_timetable') || '[]'); if (!Array.isArray(timetable)) timetable = []; } catch (e) { }
+
+      let dailyLog = {};
+      try { dailyLog = JSON.parse(localStorage.getItem('rage_daily') || '{}'); if (typeof dailyLog !== 'object' || dailyLog === null) dailyLog = {}; } catch (e) { }
+
+      let habits = [];
+      try { habits = JSON.parse(localStorage.getItem('rage_habits') || '[]'); if (!Array.isArray(habits)) habits = []; } catch (e) { }
+
       let obGoals = [];
       let obStepIdx = 0;
 
@@ -1036,7 +1050,7 @@
                }
 
                // Sync Goals
-               if (goals.length > 0) {
+               if (Array.isArray(goals) && goals.length > 0) {
                   const goalsToSync = goals.map(g => ({ ...g, user_id: user.id }));
                   await sb.from('goals').upsert(goalsToSync);
                }
@@ -1165,15 +1179,16 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
       function fmtDate(d) { return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
       function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
       function getBattery() {
+         if (!Array.isArray(tasks)) return 0;
          const today = new Date().toDateString();
          let score = 0;
          const done = tasks.filter(t => t.done && t.date === today).length;
          const total = tasks.filter(t => t.date === today).length;
          if (total > 0) score += Math.round((done / total) * 30);
-         if (dailyLog.mood) score += 5;
-         if (dailyLog.workout) score += 20;
-         if (dailyLog.studyHours >= 2) score += 30;
-         if (dailyLog.sleepOnTime) score += 15;
+         if (dailyLog && dailyLog.mood) score += 5;
+         if (dailyLog && dailyLog.workout) score += 20;
+         if (dailyLog && dailyLog.studyHours >= 2) score += 30;
+         if (dailyLog && dailyLog.sleepOnTime) score += 15;
          return Math.min(score, 100);
       }
       function getXP() { return user ? user.xp || 0 : 0; }
@@ -2699,10 +2714,13 @@ Colors: cyan, green, purple, orange, grey`;
 
       // Initial setup
       window.onload = () => {
-         if (user && user.name) {
-            // Logged in
-         } else {
-            showScreen('boot-screen');
+         // Data integrity check: if user is logged in, sync navigation
+         if (user && user.id) {
+            // Already handled in bootSequence after animation,
+            // but if we are here we should ensure active screen is consistent
+            if (currentScreen === 'boot-screen') {
+               // Let bootSequence finish its thing
+            }
          }
       };
    </script>
