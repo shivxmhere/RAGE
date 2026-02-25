@@ -1342,60 +1342,49 @@
       }
 
       async function callGemini(userMsg) {
-         const profile = JSON.parse(localStorage.getItem('rage_user') || '{}');
-         const tasksData = JSON.parse(localStorage.getItem('rage_tasks') || '[]');
-         const goalsData = JSON.parse(localStorage.getItem('rage_goals') || '[]');
-         const history = JSON.parse(localStorage.getItem('rage_chat') || '[]');
-         const daily = JSON.parse(localStorage.getItem('rage_daily') || '{}');
+         const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY;
 
-         const systemContext = `
-You are RAGE — Rise. Act. Grow. Excel.
-You are the personal AI life coach and best friend of ${profile.name || 'Shivam'}, a distance-learning student who studies from home.
+         const today = new Date().toDateString();
+         const doneTasks = Array.isArray(tasks) ? tasks.filter(t => t.done && t.date === today).length : 0;
+         const totalTasks = Array.isArray(tasks) ? tasks.filter(t => t.date === today).length : 0;
 
-You speak like a brilliant older brother who has seen the world and genuinely cares whether ${profile.name || 'Shivam'} succeeds or not.
-Sometimes call him "Cadet" but also speak naturally. Be direct, warm, honest, and tough when needed. Never be generic.
+         const moodMap = ['low energy','neutral','good','on fire','beast mode'];
+         const moodText = dailyLog?.mood != null ? moodMap[dailyLog.mood] : 'not logged';
 
-CURRENT DATA YOU KNOW:
-Name: ${profile.name || 'Shivam'}
-Level: ${profile.level || 1}
-XP: ${profile.xp || 0}
-Streak: ${profile.streak || 0} days
-Subjects: ${(profile.subjects || []).join(', ')}
-Study target: ${profile.studyTarget || 4} hours/day
-Wake time: ${profile.wakeTime || '06:00'}
-Sleep time: ${profile.sleepTime || '23:00'}
-Today's mood: ${daily.mood !== undefined ? ['😴 Low energy', '😐 Neutral', '😊 Good', '🔥 On fire', '⚡ Beast mode'][daily.mood] : 'Not logged yet'}
-Study hours today: ${daily.studyHours || 0}h
-Tasks done today: ${tasksData.filter(t => t.done && t.date === new Date().toDateString()).length}
-Active goals: ${goalsData.map(g => g.title).join(', ')}
-
-CONVERSATION HISTORY (last 10 messages):
-${history.slice(-10).map(m => m.role + ': ' + m.content).join('\n')}
-
-Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to his actual data above. Never say generic things.
-`;
+         const systemText = 'You are RAGE — personal AI life coach. Speak like a brilliant older brother. Direct, warm, tough. Never generic. Max 3 sentences unless asked for a plan.\n\nUSER DATA:\nName: ' + (user?.name || 'Cadet') + '\nLevel: ' + getLevel().lvl + '\nXP: ' + (user?.xp || 0) + '\nStreak: ' + (user?.streak || 0) + ' days\nTasks today: ' + doneTasks + '/' + totalTasks + '\nMood: ' + moodText + '\nBattery: ' + getBattery() + '%\nSubjects: ' + ((user?.subjects || []).join(', ') || 'none set') + '\n\nUser says: ' + userMsg;
 
          try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+            const res = await fetch(GEMINI_URL, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
                body: JSON.stringify({
-                  contents: [{
-                     parts: [{ text: systemContext + '\n\nUser: ' + userMsg }]
-                  }],
-                  generationConfig: {
-                     temperature: 0.8,
-                     maxOutputTokens: 300
-                  }
+                  contents: [{ parts: [{ text: systemText }] }],
+                  generationConfig: { temperature: 0.85, maxOutputTokens: 300 }
                })
             });
+
+            if (!res.ok) {
+               const e = await res.json();
+               console.error('Gemini error:', e);
+               if (res.status === 400) return 'Bad request to AI. Try rephrasing.';
+               if (res.status === 429) return 'AI rate limit hit. Wait 30 seconds then try again.';
+               if (res.status === 403) return 'API key issue. Check GEMINI_KEY in the code.';
+               return 'AI error ' + res.status + '. Try again.';
+            }
+
             const data = await res.json();
-            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Signal lost. Try again, Cadet.';
-         } catch (e) {
-            console.error(e);
-            return 'Signal lost. Try again, Cadet.';
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) {
+               console.error('Empty Gemini response:', data);
+               return 'RAGE is thinking. Try again in a moment.';
+            }
+            return text;
+         } catch(e) {
+            console.error('Gemini fetch failed:', e);
+            return 'Connection error: ' + e.message + '. Check internet and try again.';
          }
       }
+
 
       // ─── Navigation ───
       function showScreen(id) {
@@ -1494,46 +1483,66 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
       }
 
       // Add 1 — User Search
-      async function searchCadets(query) {
-         const container = document.getElementById('search-results');
-         if (!container) return;
-         if (!query || query.length < 2) {
-            container.innerHTML = '';
+async function searchCadets(query) {
+    const container = document.getElementById('search-results');
+    if (!container) return;
+
+    const clean = (query || '').replace('@', '').trim();
+    if (clean.length < 1) { container.innerHTML = ''; return; }
+
+    container.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:10px;">Scanning frequencies...</div>';
+
+    try {
+        const { data, error } = await sb.from('users_public')
+            .select('id,name,username,level,streak,xp,avatar_url,subjects')
+            .or('username.ilike.*' + clean + '*,name.ilike.*' + clean + '*')
+            .limit(10);
+
+        if (error) {
+            console.error('Search RLS error:', error);
+            container.innerHTML = '<div style="font-size:11px;color:var(--orange);padding:10px;">Search error: ' + error.message + '</div>';
             return;
-         }
-         const { data } = await sb
-            .from('users_public')
-            .select('*')
-            .or(`username.ilike.%${query}%,name.ilike.%${query}%`)
-            .neq('id', user?.id || '')
-            .limit(8);
+        }
 
-         if (!data?.length) {
-            container.innerHTML = `
-            <div style="font-size:12px;color:var(--muted);text-align:center;padding:10px;">
-              No cadets found on frequency.
-            </div>`;
+        const results = (data || []).filter(u => u.id !== user?.id);
+
+        if (!results.length) {
+            container.innerHTML = '<div style="font-size:11px;color:var(--muted);text-align:center;padding:15px;">No cadets found for "' + clean + '"</div>';
             return;
-         }
+        }
 
-         container.innerHTML = data.map(u => `
-         <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-           <div style="width:40px;height:40px;border-radius:50%;background:var(--card2);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
-             ${u.name?.[0]?.toUpperCase() || '?'}
-           </div>
-           <div style="flex:1;">
-             <div style="font-family:var(--font-t);font-weight:700;font-size:14px;">${u.name}</div>
-             <div style="font-size:11px;color:var(--muted);">
-               @${u.username || 'unknown'} • LVL ${u.level || 1} • 🔥${u.streak || 0} days
-             </div>
-           </div>
-           <button id="follow-btn-${u.id}" onclick="toggleFollow('${u.id}','${u.name}',this)" class="btn-outline" style="padding:6px 12px;font-size:10px;width:auto;">
-             FOLLOW
-           </button>
-         </div>`).join('');
+        container.innerHTML = results.map(u => `
+            <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+               <div style="width:44px;height:44px;border-radius:50%;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:white;flex-shrink:0;">
+                  ${u.avatar_url ? '<img src="' + u.avatar_url + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">' : (u.name || '?')[0].toUpperCase()}
+               </div>
+               <div style="flex:1;min-width:0;">
+                  <div style="font-family:var(--font-t);font-weight:700;font-size:14px;">${u.name || 'Unknown'}</div>
+                  <div style="font-size:11px;color:var(--muted);">@${u.username || 'unknown'} &bull; LVL ${u.level || 1} &bull; 🔥 ${u.streak || 0}d</div>
+               </div>
+               <button id="fbtn-${u.id}" onclick="toggleFollow('${u.id}','${(u.name || 'Cadet').replace(/'/g, '')}',this)" class="btn-outline" style="padding:6px 14px;font-size:10px;width:auto;flex-shrink:0;">FOLLOW</button>
+            </div>`).join('');
 
-         checkFollowStatuses(data);
-      }
+        const ids = results.map(u => u.id);
+        if (user?.id && ids.length) {
+            const { data: following } = await sb.from('followers').select('following_id').eq('follower_id', user.id).in('following_id', ids);
+            const fs = new Set((following || []).map(f => f.following_id));
+            results.forEach(u => {
+                const btn = document.getElementById('fbtn-' + u.id);
+                if (btn && fs.has(u.id)) {
+                    btn.textContent = 'FOLLOWING';
+                    btn.style.background = 'var(--cyan)';
+                    btn.style.color = 'var(--bg1)';
+                    btn.style.borderColor = 'var(--cyan)';
+                }
+            });
+        }
+    } catch (e) {
+        console.error('Search failed:', e);
+        container.innerHTML = '<div style="font-size:11px;color:var(--orange);padding:10px;">Search failed: ' + e.message + '</div>';
+    }
+}
+
 
       async function checkFollowStatuses(users) {
          if (!user?.id || !users?.length) return;
@@ -1868,51 +1877,73 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
             toast('Login failed: ' + e.message, 'var(--orange)');
          }
       }
-      async function doSignup() {
-         if (!sb) return toast('System not ready', 'var(--orange)');
-         const name = document.getElementById('signup-name').value.trim();
-         const uname = document.getElementById('signup-user').value.trim();
-         const email = document.getElementById('signup-email').value.trim();
-         const pw = document.getElementById('signup-pw').value;
-         const cpw = document.getElementById('signup-cpw').value;
-         if (!name || !uname || !email || !pw) return toast('Fill all fields', 'var(--orange)');
-         if (pw !== cpw) return toast('Passwords do not match', 'var(--orange)');
-         if (pw.length < 6) return toast('Password min 6 chars', 'var(--orange)');
-         toast('Enlisting...', 'var(--muted)');
-         try {
-            const { data, error } = await sb.auth.signUp({
-               email, password: pw,
-               options: { data: { name, username: uname } }
-            });
-            if (error) return toast(error.message, 'var(--orange)');
+async function doSignup() {
+    if (!sb) return toast('System not ready. Refresh.', 'var(--orange)');
+
+    const name = document.getElementById('signup-name').value.trim();
+    const uname = document.getElementById('signup-user').value.trim().replace('@', '').toLowerCase();
+    const email = document.getElementById('signup-email').value.trim().toLowerCase();
+    const pw = document.getElementById('signup-pw').value;
+    const cpw = document.getElementById('signup-cpw').value;
+
+    if (!name || !uname || !email || !pw) return toast('Fill all fields', 'var(--orange)');
+    if (pw !== cpw) return toast('Passwords do not match', 'var(--orange)');
+    if (pw.length < 6) return toast('Password needs 6+ characters', 'var(--orange)');
+    if (!/^[a-z0-9_]+$/.test(uname)) return toast('Username: letters, numbers, _ only', 'var(--orange)');
+
+    toast('Checking...', 'var(--muted)');
+
+    try {
+        const { data: existing } = await sb.from('users_public').select('id').eq('username', uname).maybeSingle();
+        if (existing) return toast('Username @' + uname + ' is taken. Choose another.', 'var(--orange)');
+    } catch (e) { }
+
+    toast('Enlisting...', 'var(--muted)');
+
+    try {
+        const { data, error } = await sb.auth.signUp({
+            email, password: pw,
+            options: { data: { name, username: uname } }
+        });
+
+        if (error) {
+            if (error.message.toLowerCase().includes('already')) {
+                return toast('Email already enlisted. Go to login instead.', 'var(--orange)');
+            }
+            return toast(error.message, 'var(--orange)');
+        }
+
+        if (!data?.user) return toast('Signup failed. Try again.', 'var(--orange)');
+
+        if (data.user && !data.session) {
+            toast('Check your email to confirm your account then login!', 'var(--cyan)');
+            showScreen('login-screen');
+            return;
+        }
+
+        try {
             await sb.from('users_public').upsert({
-               id: data.user.id,
-               name,
-               username: uname,
-               xp: 0,
-               streak: 0,
-               level: 1,
-               subjects: [],
-               study_target: 4,
-               wake_time: '06:00',
-               sleep_time: '23:00',
-               archetype: 'THE FOCUSED BUILDER',
-               created_at: new Date().toISOString()
+                id: data.user.id, name, username: uname,
+                xp: 0, streak: 0, level: 1, subjects: [],
+                study_target: 4, wake_time: '06:00', sleep_time: '23:00',
+                archetype: 'THE FOCUSED BUILDER'
             });
-            user = {
-               ...data.user,
-               name, username: uname,
-               xp: 0, streak: 0, level: 1,
-               subjects: []
-            };
-            save();
-            toast(`Welcome to RAGE OS, ${name}!`, 'var(--cyan)');
-            initOnboarding();
-            showScreen('onboarding-screen');
-         } catch (e) {
-            toast('Signup failed: ' + e.message, 'var(--orange)');
-         }
-      }
+        } catch (dbErr) { console.log('Profile create error:', dbErr); }
+
+        user = {
+            ...data.user, name, username: uname,
+            xp: 0, streak: 0, level: 1, subjects: [],
+            studyTarget: 4, wakeTime: '06:00', sleepTime: '23:00'
+        };
+        save();
+        toast('Welcome to RAGE OS, ' + name + '!', 'var(--cyan)');
+        initOnboarding();
+        showScreen('onboarding-screen');
+    } catch (e) {
+        toast('Signup error: ' + e.message, 'var(--orange)');
+    }
+}
+
       async function doGoogleLogin() {
          const { error } = await sb.auth.signInWithOAuth({ provider: 'google' });
          if (error) toast(error.message, 'var(--orange)');
@@ -2024,7 +2055,7 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
 <div style="display:flex;justify-content:center;gap:12px;" id="mood-btns">
 ${['😴', '😐', '😊', '🔥', '⚡'].map((m, i) => `<button onclick="setMood(${i})" style="font-size:28px;background:none;padding:6px 10px;border-radius:var(--r-sm);border:2px solid ${dailyLog.mood === i ? 'var(--cyan)' : 'transparent'};${dailyLog.mood === i ? 'box-shadow:0 0 12px var(--glow-c);transform:scale(1.15);' : ''}">${m}</button>`).join('')}
 </div>
-<div id="mood-quote" style="text-align:center;min-height:20px;margin-top:8px;">
+<div id="mood-quote" style="margin-top:12px;min-height:24px;padding:0 4px;">
 ${dailyLog.mood !== undefined ? '<span style="font-size:12px;color:var(--cyan);font-style:italic;">Mood logged ✓</span>' : ''}
 </div>
 </div>
@@ -2093,51 +2124,62 @@ ${t.done ? '<span class="tag tag-green" style="font-size:9px">COMPLETE</span>' :
          updateClock(); if (!window._clockInt) { window._clockInt = setInterval(updateClock, 1000); }
       }
 
-      function setMood(i) {
-         dailyLog.mood = i;
-         dailyLog.date = new Date().toDateString();
-         save();
-         updateStreak();
-         if (sb && user?.id) {
-            sb.from('daily_logs').upsert({
-               user_id: user.id,
-               date: new Date().toDateString(),
-               mood: i,
-               study_hours: dailyLog.studyHours || 0,
-               workout: dailyLog.workout || false,
-               sleep_on_time: dailyLog.sleepOnTime || false,
-               battery_score: getBattery()
-            }).catch(e => console.log('Log sync error:', e));
-         }
-         // Highlight selected mood
-         document.querySelectorAll('#mood-btns button').forEach((btn, idx) => {
-            btn.style.border = idx === i ? '2px solid var(--cyan)' : '2px solid transparent';
-            btn.style.boxShadow = idx === i ? '0 0 12px var(--glow-c)' : 'none';
-            btn.style.transform = idx === i ? 'scale(1.15)' : 'scale(1)';
-         });
-         // Show mood quote
-         const quoteEl = document.getElementById('mood-quote');
-         if (quoteEl) {
-            const fallbacks = [
-               'Every rep counts. Every page matters. Keep moving.',
-               'Discipline is choosing between what you want now and what you want most.',
-               'The grind doesn\'t stop. Neither do you.',
-               'Small steps daily. Massive results eventually.',
-               'You\'re building something most people can\'t even imagine.'
-            ];
-            quoteEl.innerHTML = '<span style="color:var(--muted);font-size:11px;">Loading wisdom...</span>';
-            callGemini(`Give me a single motivational sentence for someone feeling ${['low energy', 'neutral', 'good', 'on fire', 'beast mode'][i]}. Max 15 words. No quotes.`)
-               .then(quote => {
-                  if (quote && !quote.includes('Signal lost')) {
-                     quoteEl.innerHTML = `<span style="font-size:12px;color:var(--cyan);font-style:italic;">"${quote}"</span>`;
-                  } else {
-                     quoteEl.innerHTML = `<span style="font-size:12px;color:var(--cyan);font-style:italic;">"${fallbacks[i]}"</span>`;
-                  }
-               }).catch(() => {
-                  quoteEl.innerHTML = `<span style="font-size:12px;color:var(--cyan);font-style:italic;">"${fallbacks[i]}"</span>`;
-               });
-         }
-      }
+async function setMood(idx) {
+    dailyLog.mood = idx;
+    dailyLog.date = new Date().toDateString();
+    save();
+
+    if (sb && user?.id) {
+        sb.from('daily_logs').upsert({
+            user_id: user.id,
+            date: new Date().toDateString(),
+            mood: idx,
+            study_hours: dailyLog.studyHours || 0,
+            workout: dailyLog.workout || false,
+            sleep_on_time: dailyLog.sleepOnTime || false,
+            battery_score: getBattery()
+        }).catch(e => console.log('mood log error:', e));
+    }
+
+    const btns = document.querySelectorAll('#mood-btns button');
+    btns.forEach((btn, i) => {
+        btn.style.border = i === idx ? '2px solid var(--cyan)' : '2px solid transparent';
+        btn.style.transform = i === idx ? 'scale(1.2)' : 'scale(1)';
+        btn.style.boxShadow = i === idx ? '0 0 12px var(--glow-c)' : 'none';
+    });
+
+    const quoteBox = document.getElementById('mood-quote');
+    if (!quoteBox) return;
+
+    quoteBox.innerHTML = '<div style="font-size:11px;color:var(--cyan);">⏳ RAGE is reading your energy...</div>';
+
+    const fallbacks = [
+        'Rest strategically. Recovery is part of the mission.',
+        'Neutral is a launchpad. Pick one thing and start.',
+        'Good energy — channel it into your hardest task now.',
+        'You are on fire. Attack the mission. Leave nothing.',
+        'Beast mode activated. Nothing can stop you today.'
+    ];
+
+    try {
+        const moodNames = ['low energy and tired', 'neutral and okay', 'good and motivated', 'on fire and energized', 'in absolute beast mode'];
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: 'You are RAGE, a tough motivational AI coach. The user ' + (user?.name || 'Cadet') + ' is feeling ' + moodNames[idx] + ' today. Their streak is ' + (user?.streak || 0) + ' days. Write ONE unique motivational line. Under 12 words. No quotes or punctuation at start. Direct. Powerful.' }] }],
+                generationConfig: { temperature: 1.0, maxOutputTokens: 40 }
+            })
+        });
+        if (!res.ok) throw new Error('API ' + res.status);
+        const data = await res.json();
+        const quote = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || fallbacks[idx];
+        quoteBox.innerHTML = '<div style="font-size:12px;color:var(--text);line-height:1.6;font-family:var(--font-t);font-weight:600;border-left:2px solid var(--cyan);padding-left:10px;animation:fadeUp 0.4s ease;">' + quote + '</div>';
+    } catch (e) {
+        quoteBox.innerHTML = '<div style="font-size:12px;color:var(--text);line-height:1.6;font-family:var(--font-t);font-weight:600;border-left:2px solid var(--cyan);padding-left:10px;">' + fallbacks[idx] + '</div>';
+    }
+}
+
       function addTask() {
          const inp = document.getElementById('new-task'); const pr = document.getElementById('new-task-priority');
          if (!inp.value.trim()) return;
