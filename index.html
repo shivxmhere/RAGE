@@ -1357,15 +1357,24 @@
       // ─── Navigation ───
       function showScreen(id) {
          try {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            // Aggressively hide all screens (inline style overrides CSS ID specificity)
+            document.querySelectorAll('.screen').forEach(s => {
+               s.classList.remove('active');
+               s.style.display = 'none';
+            });
+
             const s = document.getElementById(id);
             if (s) {
                s.classList.add('active');
+               s.style.display = 'flex';
                currentScreen = id;
             } else {
-               console.warn(`Screen ${id} not found. Reverting to login.`);
+               console.warn('Screen ' + id + ' not found. Reverting to login.');
                const login = document.getElementById('login-screen');
-               if (login) login.classList.add('active');
+               if (login) {
+                  login.classList.add('active');
+                  login.style.display = 'flex';
+               }
             }
 
             const nav = document.getElementById('bottom-nav');
