@@ -858,6 +858,9 @@
          <div class="load-bar">
             <div class="fill" id="boot-bar"></div>
          </div>
+         <button id="boot-force-btn" class="btn-cyan"
+            style="display:none;margin-top:20px;padding:10px 20px;font-size:12px;opacity:0.8;background:transparent;border:1px solid var(--cyan);color:var(--cyan);box-shadow:none;"
+            onclick="forceBoot()">CONTINUE TO RAGE OS</button>
       </div>
    </div>
 
@@ -1365,28 +1368,49 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
 
       // ─── Navigation ───
       function showScreen(id) {
-         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-         const s = document.getElementById(id); if (s) s.classList.add('active');
-         currentScreen = id;
-         const nav = document.getElementById('bottom-nav');
-         const mainScreens = ['war-room', 'the-grid', 'rage-core', 'life-radar', 'the-vault', 'north-star', 'the-commander', 'the-network', 'comms-screen', 'notifications-screen', 'challenges-screen'];
-         nav.style.display = mainScreens.includes(id) ? 'flex' : 'none';
-         document.querySelectorAll('.nav-btn').forEach(b => { b.classList.toggle('active', b.dataset.screen === id); });
+         try {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const s = document.getElementById(id);
+            if (s) {
+               s.classList.add('active');
+               currentScreen = id;
+            } else {
+               console.warn(`Screen ${id} not found. Reverting to login.`);
+               const login = document.getElementById('login-screen');
+               if (login) login.classList.add('active');
+            }
+
+            const nav = document.getElementById('bottom-nav');
+            if (nav) {
+               const mainScreens = ['war-room', 'the-grid', 'rage-core', 'life-radar', 'the-vault', 'north-star', 'the-commander', 'the-network', 'comms-screen', 'notifications-screen', 'challenges-screen'];
+               nav.style.display = mainScreens.includes(id) ? 'flex' : 'none';
+               document.querySelectorAll('.nav-btn').forEach(b => {
+                  b.classList.toggle('active', b.dataset.screen === id);
+               });
+            }
+         } catch (e) {
+            console.error('Navigation Error:', e);
+         }
       }
       function navigate(id) {
          haptic('light');
-         showScreen(id);
-         if (id === 'war-room') renderWarRoom();
-         if (id === 'the-grid') renderGrid();
-         if (id === 'rage-core') renderRageCore();
-         if (id === 'life-radar') renderRadar();
-         if (id === 'the-vault') renderVault();
-         if (id === 'north-star') renderNorthStar();
-         if (id === 'the-commander') renderCommander();
-         if (id === 'the-network') renderNetwork();
-         if (id === 'comms-screen') renderComms();
-         if (id === 'notifications-screen') renderNotifications();
-         if (id === 'challenges-screen') renderChallenges();
+         try {
+            showScreen(id);
+            if (id === 'war-room') renderWarRoom();
+            else if (id === 'the-grid') renderGrid();
+            else if (id === 'rage-core') renderRageCore();
+            else if (id === 'life-radar') renderRadar();
+            else if (id === 'the-vault') renderVault();
+            else if (id === 'north-star') renderNorthStar();
+            else if (id === 'the-commander') renderCommander();
+            else if (id === 'the-network') renderNetwork();
+            else if (id === 'comms-screen') renderComms();
+            else if (id === 'notifications-screen') renderNotifications();
+            else if (id === 'challenges-screen') renderChallenges();
+         } catch (e) {
+            console.error(`Render Error for ${id}:`, e);
+            toast('Module failure. Attempting restart.', 'var(--orange)');
+         }
       }
 
       // Bug 13 — HAPTIC & SWIPE
@@ -1682,8 +1706,15 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
       /* ═══════════════════════════════════════
          BOOT SEQUENCE
          ═══════════════════════════════════════ */
+      function forceBoot() {
+         console.log('Force Booting...');
+         if (user && user.name) navigate('war-room');
+         else showScreen('login-screen');
+      }
+
       (function bootSequence() {
          const canvas = document.getElementById('matrix-canvas');
+         if (!canvas) return;
          const ctx = canvas.getContext('2d');
          canvas.width = window.innerWidth; canvas.height = window.innerHeight;
          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%';
@@ -1700,30 +1731,47 @@ Respond in 2-4 sentences max unless asked for a detailed plan. Be specific to hi
             }
          }
          const mi = setInterval(drawMatrix, 40);
-         setTimeout(() => { document.getElementById('boot-logo').style.opacity = '1'; }, 2200);
-         setTimeout(() => { document.getElementById('boot-ver').style.opacity = '1'; document.getElementById('boot-ticker').style.opacity = '1'; }, 2600);
-         const typingLines = ["Initializing RAGE OS...", "Syncing Shivam's data...", "All systems online. Welcome back, Cadet."];
+
+         // Safety Fallback (8s)
+         setTimeout(() => {
+            if (currentScreen === 'boot-screen') {
+               const btn = document.getElementById('boot-force-btn');
+               if (btn) btn.style.display = 'block';
+               console.warn("Boot taking too long. Fallback button enabled.");
+            }
+         }, 8000);
+
+         setTimeout(() => { document.getElementById('boot-logo').style.opacity = '1'; }, 1000);
+         setTimeout(() => { document.getElementById('boot-ver').style.opacity = '1'; document.getElementById('boot-ticker').style.opacity = '1'; }, 1500);
+
+         const typingLines = ["Initializing RAGE OS...", "Syncing Cadet data...", "All systems online. Welcome back."];
          let li = 0, ci = 0;
          const ta = document.getElementById('boot-typing');
          function typeNext() {
-            if (li >= typingLines.length) return;
+            if (!ta || li >= typingLines.length) return;
             ta.innerHTML = '> ' + typingLines[li].slice(0, ci) + '<span class="cursor"></span>';
             ci++;
-            if (ci > typingLines[li].length) { li++; ci = 0; ta.innerHTML += '\n'; setTimeout(typeNext, 400); }
+            if (ci > typingLines[li].length) {
+               li++; ci = 0; ta.innerHTML += '\n';
+               if (li < typingLines.length) setTimeout(typeNext, 400);
+            }
             else setTimeout(typeNext, 30);
          }
-         setTimeout(typeNext, 3000);
+         setTimeout(typeNext, 2000);
+
          const bar = document.getElementById('boot-bar');
          let bp = 0;
          const bi = setInterval(() => {
-            bp += 2; bar.style.width = bp + '%'; if (bp >= 100) {
+            if (!bar) { clearInterval(bi); return; }
+            bp += 1.5;
+            bar.style.width = Math.min(bp, 100) + '%';
+            if (bp >= 105) { // Extra margin to ensure typing finishes
                clearInterval(bi); clearInterval(mi);
                setTimeout(() => {
-                  if (user && user.name) { showScreen('war-room'); navigate('war-room'); }
-                  else showScreen('login-screen');
-               }, 400);
+                  if (currentScreen === 'boot-screen') forceBoot();
+               }, 500);
             }
-         }, 40);
+         }, 50);
       })();
 
       // Global Error Handler for UI notification
