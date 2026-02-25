@@ -354,37 +354,6 @@
          animation-delay: .8s;
       }
 
-      /* Typing dots animation for AI chat */
-      .typing-dots span {
-         animation: dotPulse 1.4s infinite;
-         opacity: 0.3;
-      }
-
-      .typing-dots span:nth-child(1) {
-         animation-delay: 0s;
-      }
-
-      .typing-dots span:nth-child(2) {
-         animation-delay: 0.2s;
-      }
-
-      .typing-dots span:nth-child(3) {
-         animation-delay: 0.4s;
-      }
-
-      @keyframes dotPulse {
-
-         0%,
-         80%,
-         100% {
-            opacity: 0.3;
-         }
-
-         40% {
-            opacity: 1;
-         }
-      }
-
       .ambient-bg {
          position: fixed;
          top: 0;
@@ -419,7 +388,7 @@
       }
 
       #boot-screen {
-         /* Removed explicit display: flex to allow .screen classes to work */
+         display: flex;
          align-items: center;
          justify-content: center;
          flex-direction: column;
@@ -1348,7 +1317,7 @@
          const doneTasks = Array.isArray(tasks) ? tasks.filter(t => t.done && t.date === today).length : 0;
          const totalTasks = Array.isArray(tasks) ? tasks.filter(t => t.date === today).length : 0;
 
-         const moodMap = ['low energy','neutral','good','on fire','beast mode'];
+         const moodMap = ['low energy', 'neutral', 'good', 'on fire', 'beast mode'];
          const moodText = dailyLog?.mood != null ? moodMap[dailyLog.mood] : 'not logged';
 
          const systemText = 'You are RAGE — personal AI life coach. Speak like a brilliant older brother. Direct, warm, tough. Never generic. Max 3 sentences unless asked for a plan.\n\nUSER DATA:\nName: ' + (user?.name || 'Cadet') + '\nLevel: ' + getLevel().lvl + '\nXP: ' + (user?.xp || 0) + '\nStreak: ' + (user?.streak || 0) + ' days\nTasks today: ' + doneTasks + '/' + totalTasks + '\nMood: ' + moodText + '\nBattery: ' + getBattery() + '%\nSubjects: ' + ((user?.subjects || []).join(', ') || 'none set') + '\n\nUser says: ' + userMsg;
@@ -1379,50 +1348,30 @@
                return 'RAGE is thinking. Try again in a moment.';
             }
             return text;
-         } catch(e) {
+         } catch (e) {
             console.error('Gemini fetch failed:', e);
             return 'Connection error: ' + e.message + '. Check internet and try again.';
          }
       }
 
-
       // ─── Navigation ───
       function showScreen(id) {
          try {
-            // Aggressively hide all screens
-            document.querySelectorAll('.screen').forEach(s => {
-               s.classList.remove('active');
-               s.style.display = 'none';
-            });
-
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             const s = document.getElementById(id);
             if (s) {
                s.classList.add('active');
-               s.style.display = 'flex';
                currentScreen = id;
-
-               // If entering app, hide boot screen forever
-               if (id !== 'boot-screen' && id !== 'login-screen' && id !== 'signup-screen' && id !== 'onboarding-screen') {
-                  const bs = document.getElementById('boot-screen');
-                  if (bs) {
-                     bs.style.display = 'none';
-                     bs.style.opacity = '0';
-                     bs.style.pointerEvents = 'none';
-                  }
-               }
             } else {
+               console.warn(`Screen ${id} not found. Reverting to login.`);
                const login = document.getElementById('login-screen');
-               if (login) {
-                  login.classList.add('active');
-                  login.style.display = 'flex';
-               }
+               if (login) login.classList.add('active');
             }
 
             const nav = document.getElementById('bottom-nav');
             if (nav) {
                const mainScreens = ['war-room', 'the-grid', 'rage-core', 'life-radar', 'the-vault', 'north-star', 'the-commander', 'the-network', 'comms-screen', 'notifications-screen', 'challenges-screen'];
-               const shouldShow = mainScreens.includes(id);
-               nav.style.display = shouldShow ? 'flex' : 'none';
+               nav.style.display = mainScreens.includes(id) ? 'flex' : 'none';
                document.querySelectorAll('.nav-btn').forEach(b => {
                   b.classList.toggle('active', b.dataset.screen === id);
                });
@@ -1482,36 +1431,35 @@
          </div>`).join('');
       }
 
-      // Add 1 — User Search
-async function searchCadets(query) {
-    const container = document.getElementById('search-results');
-    if (!container) return;
+      async function searchCadets(query) {
+         const container = document.getElementById('search-results');
+         if (!container) return;
 
-    const clean = (query || '').replace('@', '').trim();
-    if (clean.length < 1) { container.innerHTML = ''; return; }
+         const clean = (query || '').replace('@', '').trim();
+         if (clean.length < 1) { container.innerHTML = ''; return; }
 
-    container.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:10px;">Scanning frequencies...</div>';
+         container.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:10px;">Scanning frequencies...</div>';
 
-    try {
-        const { data, error } = await sb.from('users_public')
-            .select('id,name,username,level,streak,xp,avatar_url,subjects')
-            .or('username.ilike.*' + clean + '*,name.ilike.*' + clean + '*')
-            .limit(10);
+         try {
+            const { data, error } = await sb.from('users_public')
+               .select('id,name,username,level,streak,xp,avatar_url,subjects')
+               .or('username.ilike.*' + clean + '*,name.ilike.*' + clean + '*')
+               .limit(10);
 
-        if (error) {
-            console.error('Search RLS error:', error);
-            container.innerHTML = '<div style="font-size:11px;color:var(--orange);padding:10px;">Search error: ' + error.message + '</div>';
-            return;
-        }
+            if (error) {
+               console.error('Search RLS error:', error);
+               container.innerHTML = '<div style="font-size:11px;color:var(--orange);padding:10px;">Search error: ' + error.message + '</div>';
+               return;
+            }
 
-        const results = (data || []).filter(u => u.id !== user?.id);
+            const results = (data || []).filter(u => u.id !== user?.id);
 
-        if (!results.length) {
-            container.innerHTML = '<div style="font-size:11px;color:var(--muted);text-align:center;padding:15px;">No cadets found for "' + clean + '"</div>';
-            return;
-        }
+            if (!results.length) {
+               container.innerHTML = '<div style="font-size:11px;color:var(--muted);text-align:center;padding:15px;">No cadets found for "' + clean + '"</div>';
+               return;
+            }
 
-        container.innerHTML = results.map(u => `
+            container.innerHTML = results.map(u => `
             <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;margin-bottom:8px;">
                <div style="width:44px;height:44px;border-radius:50%;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:white;flex-shrink:0;">
                   ${u.avatar_url ? '<img src="' + u.avatar_url + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">' : (u.name || '?')[0].toUpperCase()}
@@ -1523,26 +1471,25 @@ async function searchCadets(query) {
                <button id="fbtn-${u.id}" onclick="toggleFollow('${u.id}','${(u.name || 'Cadet').replace(/'/g, '')}',this)" class="btn-outline" style="padding:6px 14px;font-size:10px;width:auto;flex-shrink:0;">FOLLOW</button>
             </div>`).join('');
 
-        const ids = results.map(u => u.id);
-        if (user?.id && ids.length) {
-            const { data: following } = await sb.from('followers').select('following_id').eq('follower_id', user.id).in('following_id', ids);
-            const fs = new Set((following || []).map(f => f.following_id));
-            results.forEach(u => {
-                const btn = document.getElementById('fbtn-' + u.id);
-                if (btn && fs.has(u.id)) {
-                    btn.textContent = 'FOLLOWING';
-                    btn.style.background = 'var(--cyan)';
-                    btn.style.color = 'var(--bg1)';
-                    btn.style.borderColor = 'var(--cyan)';
-                }
-            });
-        }
-    } catch (e) {
-        console.error('Search failed:', e);
-        container.innerHTML = '<div style="font-size:11px;color:var(--orange);padding:10px;">Search failed: ' + e.message + '</div>';
-    }
-}
-
+            const ids = results.map(u => u.id);
+            if (user?.id && ids.length) {
+               const { data: following } = await sb.from('followers').select('following_id').eq('follower_id', user.id).in('following_id', ids);
+               const fs = new Set((following || []).map(f => f.following_id));
+               results.forEach(u => {
+                  const btn = document.getElementById('fbtn-' + u.id);
+                  if (btn && fs.has(u.id)) {
+                     btn.textContent = 'FOLLOWING';
+                     btn.style.background = 'var(--cyan)';
+                     btn.style.color = 'var(--bg1)';
+                     btn.style.borderColor = 'var(--cyan)';
+                  }
+               });
+            }
+         } catch (e) {
+            console.error('Search failed:', e);
+            container.innerHTML = '<div style="font-size:11px;color:var(--orange);padding:10px;">Search failed: ' + e.message + '</div>';
+         }
+      }
 
       async function checkFollowStatuses(users) {
          if (!user?.id || !users?.length) return;
@@ -1877,73 +1824,72 @@ async function searchCadets(query) {
             toast('Login failed: ' + e.message, 'var(--orange)');
          }
       }
-async function doSignup() {
-    if (!sb) return toast('System not ready. Refresh.', 'var(--orange)');
+      async function doSignup() {
+         if (!sb) return toast('System not ready. Refresh.', 'var(--orange)');
 
-    const name = document.getElementById('signup-name').value.trim();
-    const uname = document.getElementById('signup-user').value.trim().replace('@', '').toLowerCase();
-    const email = document.getElementById('signup-email').value.trim().toLowerCase();
-    const pw = document.getElementById('signup-pw').value;
-    const cpw = document.getElementById('signup-cpw').value;
+         const name = document.getElementById('signup-name').value.trim();
+         const uname = document.getElementById('signup-user').value.trim().replace('@', '').toLowerCase();
+         const email = document.getElementById('signup-email').value.trim().toLowerCase();
+         const pw = document.getElementById('signup-pw').value;
+         const cpw = document.getElementById('signup-cpw').value;
 
-    if (!name || !uname || !email || !pw) return toast('Fill all fields', 'var(--orange)');
-    if (pw !== cpw) return toast('Passwords do not match', 'var(--orange)');
-    if (pw.length < 6) return toast('Password needs 6+ characters', 'var(--orange)');
-    if (!/^[a-z0-9_]+$/.test(uname)) return toast('Username: letters, numbers, _ only', 'var(--orange)');
+         if (!name || !uname || !email || !pw) return toast('Fill all fields', 'var(--orange)');
+         if (pw !== cpw) return toast('Passwords do not match', 'var(--orange)');
+         if (pw.length < 6) return toast('Password needs 6+ characters', 'var(--orange)');
+         if (!/^[a-z0-9_]+$/.test(uname)) return toast('Username: letters, numbers, _ only', 'var(--orange)');
 
-    toast('Checking...', 'var(--muted)');
+         toast('Checking...', 'var(--muted)');
 
-    try {
-        const { data: existing } = await sb.from('users_public').select('id').eq('username', uname).maybeSingle();
-        if (existing) return toast('Username @' + uname + ' is taken. Choose another.', 'var(--orange)');
-    } catch (e) { }
+         try {
+            const { data: existing } = await sb.from('users_public').select('id').eq('username', uname).maybeSingle();
+            if (existing) return toast('Username @' + uname + ' is taken. Choose another.', 'var(--orange)');
+         } catch (e) { }
 
-    toast('Enlisting...', 'var(--muted)');
+         toast('Enlisting...', 'var(--muted)');
 
-    try {
-        const { data, error } = await sb.auth.signUp({
-            email, password: pw,
-            options: { data: { name, username: uname } }
-        });
-
-        if (error) {
-            if (error.message.toLowerCase().includes('already')) {
-                return toast('Email already enlisted. Go to login instead.', 'var(--orange)');
-            }
-            return toast(error.message, 'var(--orange)');
-        }
-
-        if (!data?.user) return toast('Signup failed. Try again.', 'var(--orange)');
-
-        if (data.user && !data.session) {
-            toast('Check your email to confirm your account then login!', 'var(--cyan)');
-            showScreen('login-screen');
-            return;
-        }
-
-        try {
-            await sb.from('users_public').upsert({
-                id: data.user.id, name, username: uname,
-                xp: 0, streak: 0, level: 1, subjects: [],
-                study_target: 4, wake_time: '06:00', sleep_time: '23:00',
-                archetype: 'THE FOCUSED BUILDER'
+         try {
+            const { data, error } = await sb.auth.signUp({
+               email, password: pw,
+               options: { data: { name, username: uname } }
             });
-        } catch (dbErr) { console.log('Profile create error:', dbErr); }
 
-        user = {
-            ...data.user, name, username: uname,
-            xp: 0, streak: 0, level: 1, subjects: [],
-            studyTarget: 4, wakeTime: '06:00', sleepTime: '23:00'
-        };
-        save();
-        toast('Welcome to RAGE OS, ' + name + '!', 'var(--cyan)');
-        initOnboarding();
-        showScreen('onboarding-screen');
-    } catch (e) {
-        toast('Signup error: ' + e.message, 'var(--orange)');
-    }
-}
+            if (error) {
+               if (error.message.toLowerCase().includes('already')) {
+                  return toast('Email already enlisted. Go to login instead.', 'var(--orange)');
+               }
+               return toast(error.message, 'var(--orange)');
+            }
 
+            if (!data?.user) return toast('Signup failed. Try again.', 'var(--orange)');
+
+            if (data.user && !data.session) {
+               toast('Check your email to confirm your account then login!', 'var(--cyan)');
+               showScreen('login-screen');
+               return;
+            }
+
+            try {
+               await sb.from('users_public').upsert({
+                  id: data.user.id, name, username: uname,
+                  xp: 0, streak: 0, level: 1, subjects: [],
+                  study_target: 4, wake_time: '06:00', sleep_time: '23:00',
+                  archetype: 'THE FOCUSED BUILDER'
+               });
+            } catch (dbErr) { console.log('Profile create error:', dbErr); }
+
+            user = {
+               ...data.user, name, username: uname,
+               xp: 0, streak: 0, level: 1, subjects: [],
+               studyTarget: 4, wakeTime: '06:00', sleepTime: '23:00'
+            };
+            save();
+            toast('Welcome to RAGE OS, ' + name + '!', 'var(--cyan)');
+            initOnboarding();
+            showScreen('onboarding-screen');
+         } catch (e) {
+            toast('Signup error: ' + e.message, 'var(--orange)');
+         }
+      }
       async function doGoogleLogin() {
          const { error } = await sb.auth.signInWithOAuth({ provider: 'google' });
          if (error) toast(error.message, 'var(--orange)');
@@ -2055,21 +2001,7 @@ async function doSignup() {
 <div style="display:flex;justify-content:center;gap:12px;" id="mood-btns">
 ${['😴', '😐', '😊', '🔥', '⚡'].map((m, i) => `<button onclick="setMood(${i})" style="font-size:28px;background:none;padding:6px 10px;border-radius:var(--r-sm);border:2px solid ${dailyLog.mood === i ? 'var(--cyan)' : 'transparent'};${dailyLog.mood === i ? 'box-shadow:0 0 12px var(--glow-c);transform:scale(1.15);' : ''}">${m}</button>`).join('')}
 </div>
-<div id="mood-quote" style="margin-top:12px;min-height:24px;padding:0 4px;">
-${dailyLog.mood !== undefined ? '<span style="font-size:12px;color:var(--cyan);font-style:italic;">Mood logged ✓</span>' : ''}
-</div>
-</div>
-<!-- Daily Log -->
-<div class="card" style="margin-bottom:16px;padding:14px 16px;">
-<div style="font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">DAILY LOG</div>
-<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
-<span style="font-size:13px;flex:1;">📚 Study Hours</span>
-<input type="number" id="study-hrs-input" value="${dailyLog.studyHours || 0}" min="0" max="24" step="0.5" style="width:60px;text-align:center;font-size:14px;" onchange="logStudyHours(this.value)">
-</div>
-<div style="display:flex;gap:10px;align-items:center;">
-<span style="font-size:13px;flex:1;">💪 Workout Done</span>
-<button onclick="toggleWorkout()" style="padding:6px 14px;border-radius:20px;font-size:11px;background:${dailyLog.workout ? 'var(--green)' : 'var(--card2)'};color:${dailyLog.workout ? 'var(--bg1)' : 'var(--muted)'};border:1px solid ${dailyLog.workout ? 'var(--green)' : 'var(--border)'};">${dailyLog.workout ? '✓ YES' : 'NO'}</button>
-</div>
+<div id="mood-quote" style="margin-top:12px;min-height:24px;padding:0 4px;"></div>
 </div>
 <!-- Active Missions -->
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -2124,62 +2056,61 @@ ${t.done ? '<span class="tag tag-green" style="font-size:9px">COMPLETE</span>' :
          updateClock(); if (!window._clockInt) { window._clockInt = setInterval(updateClock, 1000); }
       }
 
-async function setMood(idx) {
-    dailyLog.mood = idx;
-    dailyLog.date = new Date().toDateString();
-    save();
+      async function setMood(idx) {
+         dailyLog.mood = idx;
+         dailyLog.date = new Date().toDateString();
+         save();
 
-    if (sb && user?.id) {
-        sb.from('daily_logs').upsert({
-            user_id: user.id,
-            date: new Date().toDateString(),
-            mood: idx,
-            study_hours: dailyLog.studyHours || 0,
-            workout: dailyLog.workout || false,
-            sleep_on_time: dailyLog.sleepOnTime || false,
-            battery_score: getBattery()
-        }).catch(e => console.log('mood log error:', e));
-    }
+         if (sb && user?.id) {
+            sb.from('daily_logs').upsert({
+               user_id: user.id,
+               date: new Date().toDateString(),
+               mood: idx,
+               study_hours: dailyLog.studyHours || 0,
+               workout: dailyLog.workout || false,
+               sleep_on_time: dailyLog.sleepOnTime || false,
+               battery_score: getBattery()
+            }).catch(e => console.log('mood log error:', e));
+         }
 
-    const btns = document.querySelectorAll('#mood-btns button');
-    btns.forEach((btn, i) => {
-        btn.style.border = i === idx ? '2px solid var(--cyan)' : '2px solid transparent';
-        btn.style.transform = i === idx ? 'scale(1.2)' : 'scale(1)';
-        btn.style.boxShadow = i === idx ? '0 0 12px var(--glow-c)' : 'none';
-    });
+         const btns = document.querySelectorAll('#mood-btns button');
+         btns.forEach((btn, i) => {
+            btn.style.border = i === idx ? '2px solid var(--cyan)' : '2px solid transparent';
+            btn.style.transform = i === idx ? 'scale(1.2)' : 'scale(1)';
+            btn.style.boxShadow = i === idx ? '0 0 12px var(--glow-c)' : 'none';
+         });
 
-    const quoteBox = document.getElementById('mood-quote');
-    if (!quoteBox) return;
+         const quoteBox = document.getElementById('mood-quote');
+         if (!quoteBox) return;
 
-    quoteBox.innerHTML = '<div style="font-size:11px;color:var(--cyan);">⏳ RAGE is reading your energy...</div>';
+         quoteBox.innerHTML = '<div style="font-size:11px;color:var(--cyan);">⏳ RAGE is reading your energy...</div>';
 
-    const fallbacks = [
-        'Rest strategically. Recovery is part of the mission.',
-        'Neutral is a launchpad. Pick one thing and start.',
-        'Good energy — channel it into your hardest task now.',
-        'You are on fire. Attack the mission. Leave nothing.',
-        'Beast mode activated. Nothing can stop you today.'
-    ];
+         const fallbacks = [
+            'Rest strategically. Recovery is part of the mission.',
+            'Neutral is a launchpad. Pick one thing and start.',
+            'Good energy — channel it into your hardest task now.',
+            'You are on fire. Attack the mission. Leave nothing.',
+            'Beast mode activated. Nothing can stop you today.'
+         ];
 
-    try {
-        const moodNames = ['low energy and tired', 'neutral and okay', 'good and motivated', 'on fire and energized', 'in absolute beast mode'];
-        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: 'You are RAGE, a tough motivational AI coach. The user ' + (user?.name || 'Cadet') + ' is feeling ' + moodNames[idx] + ' today. Their streak is ' + (user?.streak || 0) + ' days. Write ONE unique motivational line. Under 12 words. No quotes or punctuation at start. Direct. Powerful.' }] }],
-                generationConfig: { temperature: 1.0, maxOutputTokens: 40 }
-            })
-        });
-        if (!res.ok) throw new Error('API ' + res.status);
-        const data = await res.json();
-        const quote = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || fallbacks[idx];
-        quoteBox.innerHTML = '<div style="font-size:12px;color:var(--text);line-height:1.6;font-family:var(--font-t);font-weight:600;border-left:2px solid var(--cyan);padding-left:10px;animation:fadeUp 0.4s ease;">' + quote + '</div>';
-    } catch (e) {
-        quoteBox.innerHTML = '<div style="font-size:12px;color:var(--text);line-height:1.6;font-family:var(--font-t);font-weight:600;border-left:2px solid var(--cyan);padding-left:10px;">' + fallbacks[idx] + '</div>';
-    }
-}
-
+         try {
+            const moodNames = ['low energy and tired', 'neutral and okay', 'good and motivated', 'on fire and energized', 'in absolute beast mode'];
+            const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  contents: [{ parts: [{ text: 'You are RAGE, a tough motivational AI coach. The user ' + (user?.name || 'Cadet') + ' is feeling ' + moodNames[idx] + ' today. Their streak is ' + (user?.streak || 0) + ' days. Write ONE unique motivational line. Under 12 words. No quotes or punctuation at start. Direct. Powerful.' }] }],
+                  generationConfig: { temperature: 1.0, maxOutputTokens: 40 }
+               })
+            });
+            if (!res.ok) throw new Error('API ' + res.status);
+            const data = await res.json();
+            const quote = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || fallbacks[idx];
+            quoteBox.innerHTML = '<div style="font-size:12px;color:var(--text);line-height:1.6;font-family:var(--font-t);font-weight:600;border-left:2px solid var(--cyan);padding-left:10px;animation:fadeUp 0.4s ease;">' + quote + '</div>';
+         } catch (e) {
+            quoteBox.innerHTML = '<div style="font-size:12px;color:var(--text);line-height:1.6;font-family:var(--font-t);font-weight:600;border-left:2px solid var(--cyan);padding-left:10px;">' + fallbacks[idx] + '</div>';
+         }
+      }
       function addTask() {
          const inp = document.getElementById('new-task'); const pr = document.getElementById('new-task-priority');
          if (!inp.value.trim()) return;
@@ -2373,15 +2304,15 @@ Colors: cyan, green, purple, orange, grey`;
             <div style="display:flex;gap:10px;overflow-x:auto;width:100%;padding:10px 0;scrollbar-width:none;">
                 <div class="card" style="flex-shrink:0;padding:8px 15px;border-radius:20px;display:flex;align-items:center;gap:8px;">
                     <span style="display:block;width:6px;height:6px;background:var(--cyan);border-radius:50%;"></span>
-                    <span style="font-size:11px;white-space:nowrap;">📚 Study: ${dailyLog.studyHours ? dailyLog.studyHours.toFixed(1) + 'h today' : 'No data yet'}</span>
+                    <span style="font-size:11px;white-space:nowrap;">🌙 Avg sleep: 6.5h</span>
                 </div>
                 <div class="card" style="flex-shrink:0;padding:8px 15px;border-radius:20px;display:flex;align-items:center;gap:8px;">
                     <span style="display:block;width:6px;height:6px;background:var(--purple);border-radius:50%;"></span>
-                    <span style="font-size:11px;white-space:nowrap;">⚡ Battery: ${getBattery()}%</span>
+                    <span style="font-size:11px;white-space:nowrap;">🎯 Focus Score: 86</span>
                 </div>
                 <div class="card" style="flex-shrink:0;padding:8px 15px;border-radius:20px;display:flex;align-items:center;gap:8px;">
                     <span style="display:block;width:6px;height:6px;background:var(--orange);border-radius:50%;"></span>
-                    <span style="font-size:11px;white-space:nowrap;">🔥 Streak: ${user?.streak || 0} days</span>
+                    <span style="font-size:11px;white-space:nowrap;">🔥 Streak: 5 days</span>
                 </div>
             </div>
         </div>
@@ -2437,26 +2368,10 @@ Colors: cyan, green, purple, orange, grey`;
          orb.style.animationDuration = '1s';
          orb.style.boxShadow = '0 0 80px rgba(255,107,53,0.5)';
 
-         // Show typing indicator
-         const typingId = 'typing-' + Date.now();
-         chat.innerHTML += `
-    <div id="${typingId}" style="display:flex;gap:10px;max-width:85%;">
-        <div style="width:30px;height:30px;border-radius:50%;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
-        <div class="card" style="padding:12px;border-left:3px solid var(--purple);border-bottom-left-radius:4px;">
-            <div style="font-size:13px;line-height:1.5;color:var(--muted);"><span class="typing-dots">Thinking<span>.</span><span>.</span><span>.</span></span></div>
-        </div>
-    </div>
-    `;
-         chat.scrollTop = chat.scrollHeight;
-
          const reply = await callGemini(msg);
 
          orb.style.animationDuration = '4s';
          orb.style.boxShadow = '0 0 60px rgba(0,245,255,0.4)';
-
-         // Remove typing indicator
-         const typingEl = document.getElementById(typingId);
-         if (typingEl) typingEl.remove();
 
          // Save response
          chatHistory.push({ role: 'rage', content: reply, timestamp: Date.now() });
@@ -2509,16 +2424,16 @@ Colors: cyan, green, purple, orange, grey`;
         
         <div style="display:flex;justify-content:space-around;margin-bottom:20px;">
             <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
-                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">${dailyLog.studyHours ? dailyLog.studyHours.toFixed(1) + 'h' : '0h'}</div>
-                <div style="font-size:9px;color:var(--muted);">STUDY TODAY</div>
+                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">42h</div>
+                <div style="font-size:9px;color:var(--muted);">STUDY TIME</div>
             </div>
             <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
-                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">${getBattery()}</div>
-                <div style="font-size:9px;color:var(--muted);">BATTERY</div>
+                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">84</div>
+                <div style="font-size:9px;color:var(--muted);">FOCUS SCORE</div>
             </div>
             <div class="card" style="padding:10px;text-align:center;flex:1;margin:0 5px;">
-                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">${user?.streak || 0}d</div>
-                <div style="font-size:9px;color:var(--muted);">STREAK</div>
+                <div style="font-family:var(--font-d);font-size:18px;color:var(--cyan);">7h</div>
+                <div style="font-size:9px;color:var(--muted);">AVG SLEEP</div>
             </div>
         </div>
         
@@ -2545,8 +2460,6 @@ Colors: cyan, green, purple, orange, grey`;
 
       function renderVault() {
          const s = document.getElementById('the-vault');
-         const userSubjects = user?.subjects || [];
-         const fileCount = tasks.length;
          s.innerHTML = `
     <div style="padding:16px 20px;" class="stagger">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -2560,40 +2473,43 @@ Colors: cyan, green, purple, orange, grey`;
                 <span class="tag tag-green">ENCRYPTED</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:baseline;">
-                <span style="font-family:var(--font-d);font-size:1.8rem;color:var(--cyan);">${fileCount} files</span>
-                <span style="font-size:10px;color:var(--muted);">logged</span>
+                <span style="font-family:var(--font-d);font-size:1.8rem;color:var(--cyan);">2.4 GB</span>
+                <span style="font-size:10px;color:var(--muted);">/ 15 GB</span>
+            </div>
+            <div style="height:4px;background:var(--bg2);border-radius:4px;margin-top:10px;overflow:hidden;">
+                <div style="width:16%;height:100%;background:var(--cyan);"></div>
             </div>
         </div>
         
         <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:12px;">SUBJECT_DIRECTORIES</div>
-        ${userSubjects.length > 0 ? `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-            ${userSubjects.map(sub => `
+            ${['Mathematics', 'Physics', 'CompSci', 'History'].map(sub => `
                 <div class="card" style="padding:15px;display:flex;flex-direction:column;gap:8px;">
                     <div style="font-size:24px;">📁</div>
                     <div style="font-family:var(--font-t);font-weight:700;font-size:13px;">${sub}</div>
-                    <div style="font-size:9px;color:var(--muted);">${tasks.filter(t => t.tag === sub).length} FILES</div>
+                    <div style="font-size:9px;color:var(--muted);">12 FILES</div>
                 </div>
             `).join('')}
         </div>
-        ` : `
-        <div class="card" style="text-align:center;padding:30px;margin-bottom:20px;color:var(--muted);">
-            <div style="font-size:30px;margin-bottom:10px;">📂</div>
-            <div style="font-size:12px;">No subject directories yet. Select subjects in onboarding or edit profile.</div>
-        </div>
-        `}
         
-        <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:12px;">RECENT_ACTIVITY</div>
+        <div style="font-family:var(--font-t);font-weight:700;font-size:14px;margin-bottom:12px;">RECENT_LOGS</div>
         <div style="display:flex;flex-direction:column;gap:10px;">
-            ${tasks.slice(-3).reverse().map(t => `
             <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;">
-                <span style="font-size:20px;">${t.done ? '✅' : '📝'}</span>
+                <span style="font-size:20px;">📄</span>
                 <div style="flex:1;">
-                    <div style="font-size:13px;font-family:var(--font-t);font-weight:600;">${t.title}</div>
-                    <div style="font-size:10px;color:var(--muted);">${t.date || 'No date'} ${t.tag ? '• ' + t.tag : ''}</div>
+                    <div style="font-size:13px;font-family:var(--font-t);font-weight:600;">Thesis_Draft_v4.docx</div>
+                    <div style="font-size:10px;color:var(--muted);">TODAY, 14:20 • 1.2 MB</div>
                 </div>
+                <span>⋮</span>
             </div>
-            `).join('') || '<div style="text-align:center;color:var(--muted);font-size:11px;padding:15px;">No activity logged yet.</div>'}
+            <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;">
+                <span style="font-size:20px;">📑</span>
+                <div style="flex:1;">
+                    <div style="font-size:13px;font-family:var(--font-t);font-weight:600;">Physics_Lab_B3.pdf</div>
+                    <div style="font-size:10px;color:var(--muted);">YESTERDAY • 4.5 MB</div>
+                </div>
+                <span>⋮</span>
+            </div>
         </div>
     </div>
     `;
@@ -2715,18 +2631,16 @@ Colors: cyan, green, purple, orange, grey`;
     <div style="padding:16px 20px;" class="stagger">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
       <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">THE COMMANDER</h1>
-      <button onclick="showEditProfile()" class="btn-outline" style="padding:6px 14px;font-size:10px;width:auto;">EDIT PROFILE</button>
+      <span>⚙️</span>
   </div>
   
   <!-- Hero -->
   <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:30px;">
-      <div style="width:100px;height:100px;border-radius:50%;border:3px solid var(--cyan);padding:4px;margin-bottom:15px;box-shadow:0 0 20px var(--glow-c);overflow:hidden;">
-          <div style="width:100%;height:100%;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden;">${user?.avatar_url ? `<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">` : user?.name?.[0].toUpperCase()}</div>
+      <div style="width:100px;height:100px;border-radius:50%;border:3px solid var(--cyan);padding:4px;margin-bottom:15px;box-shadow:0 0 20px var(--glow-c);">
+          <div style="width:100%;height:100%;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:40px;">${user?.name?.[0].toUpperCase()}</div>
       </div>
       <h2 style="font-family:var(--font-d);font-size:1.4rem;">${(user?.name || 'Shivam').toUpperCase()}</h2>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;">@${user?.username || 'cadet'} ${user?.location ? '• 📍 ' + user.location : ''}</div>
       <div style="font-family:var(--font-t);font-size:13px;color:var(--cyan);letter-spacing:2px;margin-top:5px;">LEVEL ${lv.lvl} ${lv.title.toUpperCase()}</div>
-      ${user?.bio ? `<div style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center;max-width:280px;line-height:1.5;">${user.bio}</div>` : ''}
       
       <div style="width:100%;max-width:300px;margin-top:20px;">
           <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:6px;">
@@ -2939,37 +2853,31 @@ Colors: cyan, green, purple, orange, grey`;
 
       function renderNotifications() {
          const s = document.getElementById('notifications-screen');
-         let notifs = [];
-         try { notifs = JSON.parse(localStorage.getItem('rage_notifications') || '[]'); } catch (e) { }
-         // Mark all as read
-         notifs = notifs.map(n => ({ ...n, read: true }));
-         localStorage.setItem('rage_notifications', JSON.stringify(notifs));
-
          s.innerHTML = `
     <div style="padding:16px 20px;" class="stagger">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
             <h1 style="font-family:var(--font-d);font-size:1.5rem;color:var(--text);letter-spacing:1px;">NOTIFICATIONS</h1>
-            <span style="font-size:11px;color:var(--cyan);cursor:pointer;" onclick="clearAllNotifications()">Clear All</span>
+            <span style="font-size:11px;color:var(--cyan);" onclick="toast('All cleared.')">Mark All Read</span>
         </div>
         
         <div style="display:flex;flex-direction:column;gap:10px;">
-            ${notifs.length > 0 ? notifs.slice().reverse().map(n => `
-                <div class="card" style="padding:15px;display:flex;gap:15px;border-left:3px solid ${n.color || 'var(--cyan)'}; ${!n.read ? 'background:rgba(0,245,255,0.03);' : ''}">
-                    <div style="font-size:20px;">${n.icon || '📡'}</div>
+            ${[
+               { icon: '🔥', title: 'Streak Milestone', text: 'You’ve reached a 14-day streak!', time: '2h ago', color: 'var(--orange)' },
+               { icon: '🎯', title: 'Goal Alert', text: 'Cyber-Security Cert deadline in 3 days.', time: '5h ago', color: 'var(--cyan)' },
+               { icon: '👤', title: 'New Follower', text: '@marcus_dev is now following you.', time: '1d ago', color: 'var(--purple)' },
+               { icon: '🏆', title: 'Achievement Unlocked', text: 'Night Owl Badge earned.', time: '2d ago', color: 'var(--green)' }
+            ].map(n => `
+                <div class="card" style="padding:15px;display:flex;gap:15px;border-left:3px solid ${n.color};">
+                    <div style="font-size:20px;">${n.icon}</div>
                     <div style="flex:1;">
                         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
                             <span style="font-family:var(--font-t);font-weight:700;font-size:13px;">${n.title}</span>
-                            <span style="font-size:9px;color:var(--muted);">${getTimeAgo(n.timestamp)}</span>
+                            <span style="font-size:9px;color:var(--muted);">${n.time}</span>
                         </div>
                         <div style="font-size:11px;color:var(--muted);line-height:1.4;">${n.text}</div>
                     </div>
                 </div>
-            `).join('') : `
-            <div class="card" style="text-align:center;padding:40px;color:var(--muted);">
-                <div style="font-size:30px;margin-bottom:10px;">📡</div>
-                <div style="font-size:12px;">All quiet on the frequency, Cadet.</div>
-            </div>
-            `}
+            `).join('')}
         </div>
     </div>
     `;
@@ -3306,19 +3214,7 @@ Colors: cyan, green, purple, orange, grey`;
          } catch (e) { toast('Transmission failed.', 'var(--orange)'); }
       }
 
-      async function reactToPost(postId, emoji) {
-         try {
-            const { data: post } = await sb.from('posts').select('reactions').eq('id', postId).single();
-            if (!post) return toast('Post not found', 'var(--orange)');
-            const reactions = post.reactions || { fire: 0, zap: 0 };
-            if (emoji === '🔥') reactions.fire = (reactions.fire || 0) + 1;
-            else if (emoji === '⚡') reactions.zap = (reactions.zap || 0) + 1;
-            await sb.from('posts').update({ reactions }).eq('id', postId);
-            toast('Reacted with ' + emoji, 'var(--cyan)');
-            confetti();
-            renderNetwork();
-         } catch (e) { toast('Reaction failed', 'var(--orange)'); }
-      }
+      async function reactToPost(postId, emoji) { toast('Reacted with ' + emoji); confetti(); }
 
       function initPresence() {
          if (presenceChannel) return;
@@ -3326,7 +3222,6 @@ Colors: cyan, green, purple, orange, grey`;
          presenceChannel.on('presence', { event: 'sync' }, () => {
             const state = presenceChannel.presenceState();
             updateOnlineUI(state);
-            updateCommsDots(state);
          }).subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
                await presenceChannel.track({
@@ -3345,14 +3240,6 @@ Colors: cyan, green, purple, orange, grey`;
             <div style="width:50px;height:50px;border-radius:50%;border:2px solid var(--green);padding:2px;flex-shrink:0;">
                 <div style="width:100%;height:100%;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;">${u.avatar || '👤'}</div>
             </div>`).join('') || '<div style="color:var(--muted);font-size:11px;">No other cadets active.</div>';
-      }
-
-      function updateCommsDots(state) {
-         const onlineIds = new Set(Object.values(state).flat().map(u => u.id));
-         document.querySelectorAll('[id^="status-"]').forEach(dot => {
-            const uid = dot.id.replace('status-', '');
-            dot.style.background = onlineIds.has(uid) ? 'var(--green)' : 'grey';
-         });
       }
 
       // Fix 7: Stories
@@ -3705,213 +3592,6 @@ Colors: cyan, green, purple, orange, grey`;
             document.getElementById('pact-modal').remove();
             renderNetwork();
          } catch (e) { toast('Transmission failed.', 'var(--orange)'); }
-      }
-
-      // ─── NF4: Notification System ───
-      function addNotification(title, text, icon = '📡', color = 'var(--cyan)') {
-         let notifs = [];
-         try { notifs = JSON.parse(localStorage.getItem('rage_notifications') || '[]'); } catch (e) { }
-         notifs.push({ title, text, icon, color, timestamp: Date.now(), read: false });
-         if (notifs.length > 50) notifs = notifs.slice(-50);
-         localStorage.setItem('rage_notifications', JSON.stringify(notifs));
-      }
-
-      function getTimeAgo(ts) {
-         if (!ts) return '';
-         const diff = Date.now() - ts;
-         const mins = Math.floor(diff / 60000);
-         if (mins < 1) return 'just now';
-         if (mins < 60) return mins + 'm ago';
-         const hrs = Math.floor(mins / 60);
-         if (hrs < 24) return hrs + 'h ago';
-         const days = Math.floor(hrs / 24);
-         return days + 'd ago';
-      }
-
-      function clearAllNotifications() {
-         localStorage.setItem('rage_notifications', '[]');
-         renderNotifications();
-         toast('All notifications cleared', 'var(--muted)');
-      }
-
-      // ─── NF2: Study Log Functions ───
-      function logStudyHours(val) {
-         const hrs = parseFloat(val) || 0;
-         dailyLog.studyHours = hrs;
-         dailyLog.date = new Date().toDateString();
-         save();
-         if (hrs > 0) {
-            addXP(Math.round(hrs * 10));
-            addNotification('Study Logged', `${hrs}h of study recorded. Keep grinding!`, '📚', 'var(--cyan)');
-         }
-         if (sb && user?.id) {
-            sb.from('daily_logs').upsert({
-               user_id: user.id, date: new Date().toDateString(),
-               study_hours: hrs, mood: dailyLog.mood, workout: dailyLog.workout || false,
-               battery_score: getBattery()
-            }).catch(() => { });
-         }
-      }
-
-      function toggleWorkout() {
-         dailyLog.workout = !dailyLog.workout;
-         dailyLog.date = new Date().toDateString();
-         save();
-         if (dailyLog.workout) {
-            addXP(15);
-            addNotification('Workout Done!', 'Great job staying active. +15 XP', '💪', 'var(--green)');
-            toast('Workout logged! +15 XP', 'var(--green)');
-         }
-         if (sb && user?.id) {
-            sb.from('daily_logs').upsert({
-               user_id: user.id, date: new Date().toDateString(),
-               workout: dailyLog.workout, study_hours: dailyLog.studyHours || 0,
-               mood: dailyLog.mood, battery_score: getBattery()
-            }).catch(() => { });
-         }
-         renderWarRoom();
-      }
-
-      // ─── Fix 6 + NF1: Edit Profile + Avatar Upload ───
-      function showEditProfile() {
-         const modal = document.createElement('div');
-         modal.id = 'edit-profile-modal';
-         modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:5000;overflow-y:auto;';
-         const allSubjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Economics', 'Computer Science', 'Political Science', 'Psychology', 'Sociology', 'Hindi', 'Geography'];
-         modal.innerHTML = `
-         <div style="padding:24px;max-width:440px;margin:0 auto;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
-               <h2 style="font-family:var(--font-d);font-size:1.2rem;color:var(--cyan);">EDIT PROFILE</h2>
-               <button onclick="document.getElementById('edit-profile-modal').remove()" style="background:none;color:var(--muted);font-size:24px;">×</button>
-            </div>
-            
-            <div style="text-align:center;margin-bottom:30px;">
-               <div id="avatar-preview" style="width:80px;height:80px;border-radius:50%;background:var(--card);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 10px;overflow:hidden;">
-                  ${user?.avatar_url ? `<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">` : (user?.name?.[0]?.toUpperCase() || '?')}
-               </div>
-               <label style="font-size:11px;color:var(--cyan);cursor:pointer;">
-                  CHANGE PHOTO
-                  <input type="file" id="avatar-file" accept="image/*" style="display:none;" onchange="previewAvatar(this)">
-               </label>
-            </div>
-
-            <div style="display:flex;flex-direction:column;gap:15px;">
-               <div>
-                  <label style="font-size:10px;color:var(--muted);letter-spacing:1px;">NAME</label>
-                  <input type="text" id="edit-name" value="${user?.name || ''}" style="margin-top:4px;">
-               </div>
-               <div>
-                  <label style="font-size:10px;color:var(--muted);letter-spacing:1px;">USERNAME</label>
-                  <input type="text" id="edit-username" value="${user?.username || ''}" style="margin-top:4px;">
-               </div>
-               <div>
-                  <label style="font-size:10px;color:var(--muted);letter-spacing:1px;">BIO</label>
-                  <textarea id="edit-bio" style="margin-top:4px;height:60px;resize:none;">${user?.bio || ''}</textarea>
-               </div>
-               <div>
-                  <label style="font-size:10px;color:var(--muted);letter-spacing:1px;">LOCATION</label>
-                  <input type="text" id="edit-location" value="${user?.location || ''}" style="margin-top:4px;">
-               </div>
-               <div style="display:flex;gap:10px;">
-                  <div style="flex:1;">
-                     <label style="font-size:10px;color:var(--muted);letter-spacing:1px;">STUDY TARGET (h/day)</label>
-                     <input type="number" id="edit-study-target" value="${user?.studyTarget || 4}" min="1" max="16" style="margin-top:4px;">
-                  </div>
-                  <div style="flex:1;">
-                     <label style="font-size:10px;color:var(--muted);letter-spacing:1px;">WAKE TIME</label>
-                     <input type="time" id="edit-wake" value="${user?.wakeTime || '06:00'}" style="margin-top:4px;">
-                  </div>
-                  <div style="flex:1;">
-                     <label style="font-size:10px;color:var(--muted);letter-spacing:1px;">SLEEP TIME</label>
-                     <input type="time" id="edit-sleep" value="${user?.sleepTime || '23:00'}" style="margin-top:4px;">
-                  </div>
-               </div>
-               <div>
-                  <label style="font-size:10px;color:var(--muted);letter-spacing:1px;">SUBJECTS</label>
-                  <div id="edit-subjects" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
-                     ${allSubjects.map(s => `<button onclick="toggleSubject(this,'${s}')" class="tag ${(user?.subjects || []).includes(s) ? 'tag-cyan' : ''}" style="cursor:pointer;padding:6px 12px;">${s}</button>`).join('')}
-                  </div>
-               </div>
-            </div>
-            
-            <button class="btn-cyan" style="margin-top:30px;" onclick="saveProfile()">SAVE CHANGES</button>
-         </div>`;
-         document.body.appendChild(modal);
-      }
-
-      function toggleSubject(btn, subject) {
-         btn.classList.toggle('tag-cyan');
-      }
-
-      function previewAvatar(input) {
-         if (input.files && input.files[0]) {
-            if (input.files[0].size > 2 * 1024 * 1024) {
-               toast('Max 2MB file size', 'var(--orange)');
-               input.value = '';
-               return;
-            }
-            const reader = new FileReader();
-            reader.onload = (e) => {
-               const preview = document.getElementById('avatar-preview');
-               preview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
-            };
-            reader.readAsDataURL(input.files[0]);
-         }
-      }
-
-      async function saveProfile() {
-         const name = document.getElementById('edit-name').value.trim();
-         const username = document.getElementById('edit-username').value.trim();
-         const bio = document.getElementById('edit-bio').value.trim();
-         const location = document.getElementById('edit-location').value.trim();
-         const studyTarget = parseInt(document.getElementById('edit-study-target').value) || 4;
-         const wakeTime = document.getElementById('edit-wake').value || '06:00';
-         const sleepTime = document.getElementById('edit-sleep').value || '23:00';
-         const subjects = [...document.querySelectorAll('#edit-subjects .tag-cyan')].map(b => b.textContent);
-
-         if (!name) return toast('Name is required', 'var(--orange)');
-
-         user.name = name;
-         user.username = username;
-         user.bio = bio;
-         user.location = location;
-         user.studyTarget = studyTarget;
-         user.wakeTime = wakeTime;
-         user.sleepTime = sleepTime;
-         user.subjects = subjects;
-
-         // Handle avatar upload
-         const fileInput = document.getElementById('avatar-file');
-         if (fileInput?.files?.[0] && sb) {
-            try {
-               const file = fileInput.files[0];
-               const ext = file.name.split('.').pop();
-               const path = `${user.id}/avatar.${ext}`;
-               await sb.storage.from('avatars').upload(path, file, { upsert: true });
-               const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path);
-               user.avatar_url = urlData.publicUrl;
-            } catch (e) {
-               console.error('Avatar upload error:', e);
-               toast('Avatar upload failed, profile saved without it', 'var(--orange)');
-            }
-         }
-
-         save();
-
-         if (sb && user?.id) {
-            try {
-               await sb.from('users_public').upsert({
-                  id: user.id, name, username, bio, location,
-                  study_target: studyTarget, wake_time: wakeTime, sleep_time: sleepTime,
-                  subjects, avatar_url: user.avatar_url || null,
-                  xp: user.xp || 0, streak: user.streak || 0, level: getLevel().lvl
-               });
-            } catch (e) { console.error('Profile sync error:', e); }
-         }
-
-         document.getElementById('edit-profile-modal')?.remove();
-         toast('Profile updated!', 'var(--green)');
-         renderCommander();
       }
 
       // Initial setup
