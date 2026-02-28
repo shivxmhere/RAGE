@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle2, Circle, Clock, Flame, Brain, Target, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Flame, Brain, Target, RefreshCw, Calendar, FolderOpen, User } from 'lucide-react';
 import { useStore } from '../hooks/useStore';
 
 export default function Home() {
