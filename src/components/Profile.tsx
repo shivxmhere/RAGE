@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Settings, Timer, Flame, CheckCircle2, Brain, Award, Zap, BookOpen, Lock, User, Bell, Shield } from 'lucide-react';
+import { Settings, Timer, Flame, CheckCircle2, Brain, Award, Zap, BookOpen, Lock, User, Bell, Shield, ChevronRight } from 'lucide-react';
 import { useStore } from '../hooks/useStore';
 
 export default function Profile() {
